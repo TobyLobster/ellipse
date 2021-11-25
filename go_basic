@@ -1,0 +1,2 @@
+python tools/basiclabel.py -s 10 -i 10 ./ellipse.txt ./ellipse_out.txt
+cat ./ellipse_out.txt | pbcopy

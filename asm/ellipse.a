@@ -1,0 +1,876 @@
+OSWRCH = $FFEE
+
+xvar_index   = $70
+counter      = $71
+multiplier   = $72
+multiplicand = $76
+product      = $7a
+
+* = $1900
+
+; ***************************************************************************************
+main
+    jsr set_mode                        ;
+    jsr draw_ellipse                    ;
+    rts                                 ;
+
+; ***************************************************************************************
+draw_ellipse
+    lda #b - variables_start            ;
+    ldx #b - variables_start            ;
+    ldy #bb - variables_start           ;
+    jsr multiply16                      ; BB = B*B
+
+    lda #a - variables_start            ;
+    ldx #a - variables_start            ;
+    ldy #aa - variables_start           ;
+    jsr multiply16                      ; AA = A*A
+
+    lda #0                              ;
+    ldx #ysquared - variables_start     ;
+    jsr set_variable32_to_a             ; YSQUARED = 0
+
+    lda #1                              ;
+    ldx #ysquareddiff - variables_start ;
+    jsr set_variable32_to_a             ; YSQUAREDDIFF = 1
+
+    ldx #a - variables_start            ;
+    ldy #x1 - variables_start           ;
+    jsr negate16                        ; X1 = -A
+
+    ldx #a - variables_start            ;
+    ldy #x2 - variables_start           ;
+    jsr copy16                          ; X2 = A
+
+    lda #0                              ;
+    ldx #y - variables_start            ;
+    jsr set_variable16_to_a             ; Y = 0
+
+    lda #0                              ;
+    ldx #ys - variables_start           ;
+    jsr set_variable32_to_a             ; YS = 0
+
+fory_loop
+    ldx #x1 - variables_start           ;
+    ldy #ox1 - variables_start          ;
+    jsr copy16                          ; OX1 = X1
+
+    ldx #x2 - variables_start           ;
+    ldy #ox2 - variables_start          ;
+    jsr copy16                          ; OX2 = X2
+
+    lda #bb - variables_start           ;
+    ldx #ysquared - variables_start     ;
+    ldy #temp - variables_start         ; temp = bb-ysquared
+    jsr subtract32                      ;
+
+    lda #aa - variables_start           ;
+    ldx #temp - variables_start         ;
+    ldy #dd - variables_start           ;
+    jsr multiply32                      ; DD = aa*temp
+
+    ldx #bb - variables_start           ;
+    ldy #bb2 - variables_start          ;
+    jsr div2_32                         ; BB2 = BB/2
+
+    lda #x2 - variables_start           ;
+    ldx #b - variables_start            ;
+    ldy #temp - variables_start         ;
+    jsr multiply16                      ; temp = x2*B
+
+    ldy #temp - variables_start         ;
+    jsr extend32                        ; make temp 32 bits, signed from 16 bits signed
+
+    lda #temp - variables_start         ;
+    ldx #ys - variables_start           ;
+    ldy #t - variables_start            ;
+    jsr subtract32                      ; T = temp - YS
+
+repeat_loop1
+    lda t + 3                           ;
+    bpl ++                              ;
+    jmp inc_x2                          ; IF T<0 THEN GOTO ...
+++
+    ora t + 2                           ;
+    ora t + 1                           ;
+    ora t + 0                           ;
+    beq +                               ; IF T=0 THEN GOTO ...
+
+    ; D1%=T%*T%-DD%
+    lda #t - variables_start            ;
+    ldx #t - variables_start            ;
+    ldy #temp - variables_start         ;
+    jsr multiply32                      ; temp = T*T
+
+    lda #temp - variables_start         ;
+    ldx #dd - variables_start           ;
+    ldy #d1 - variables_start           ;
+    jsr subtract32                      ; D1 = temp-DD
+
+    ; BD%=B%*T%+BB2%
+    lda #b - variables_start            ;
+    ldx #t - variables_start            ;
+    ldy #temp - variables_start         ;
+    jsr multiply32                      ; temp = B*T
+
+    lda #temp - variables_start         ;
+    ldx #bb2 - variables_start          ;
+    ldy #bd - variables_start           ;
+    jsr add32                           ; BD = temp+BB2
+
+    lda #bd - variables_start           ;
+    ldx #d1 - variables_start           ;
+    ldy #temp - variables_start         ;
+    jsr subtract32                      ; temp = BD-D1
+
+    lda temp+3                          ;
+    bpl ++                              ;
+    jmp dec_x2                          ; IF T<0 THEN GOTO ...
+++
+
+    lda #bd - variables_start           ;
+    ldx #d1 - variables_start           ;
+    ldy #temp - variables_start         ;
+    jsr add32                           ; temp = BD+D1
+
+    lda temp+3                          ;
+    bpl ++                              ;
+    jmp inc_x2                          ; IF T<0 THEN GOTO ...
+++
++
+    ; DX%=SGN(X2%-OX2%)
+    lda #x2 - variables_start           ;
+    ldx #ox2 - variables_start          ;
+    ldy #temp - variables_start         ; temp = X2-OX2
+    jsr subtract16                      ;
+
+    ldx #temp - variables_start         ;
+    jsr sgn16                           ;
+    sta temp                            ;
+    cmp #1                              ;
+    bne +                               ;
+    lda #0                              ;
++
+    sta temp + 1                        ; temp = SGN(temp)
+
+    lda #ox2 - variables_start          ;
+    ldx #x2 - variables_start           ;
+    jsr draw_hlines                     ;
+
+    ; second half!
+    lda #x1 - variables_start           ;
+    ldx #b - variables_start            ;
+    ldy #temp - variables_start         ;
+    jsr multiply16                      ; temp = x1*B
+
+    ldy #temp - variables_start         ;
+    jsr extend32                        ; make temp 32 bits, signed from 16 bits signed
+
+    lda #temp - variables_start         ;
+    ldx #ys - variables_start           ;
+    ldy #t - variables_start            ;
+    jsr subtract32                      ; T = temp - YS
+
+repeat_loop2
+    lda t + 3                           ;
+    bmi ++                              ;
+    ora t + 2                           ;
+    ora t + 1                           ;
+    ora t + 0                           ;
+    beq +                               ; IF T=0 THEN GOTO ...
+    jmp dec_x1                          ; IF T>0 THEN GOTO ...
+++
+
+    ; D1%=T%*T%-DD%
+    lda #t - variables_start            ;
+    ldx #t - variables_start            ;
+    ldy #temp - variables_start         ;
+    jsr multiply32                      ; temp = T*T
+
+    lda #temp - variables_start         ;
+    ldx #dd - variables_start           ;
+    ldy #d1 - variables_start           ;
+    jsr subtract32                      ; D1 = temp-DD
+
+    ; BD%=B%*T%+BB2%
+    lda #b - variables_start            ;
+    ldx #t - variables_start            ;
+    ldy #temp - variables_start         ;
+    jsr multiply32                      ; temp = B*T
+
+    lda #bb2 - variables_start          ;
+    ldx #temp - variables_start         ;
+    ldy #bd - variables_start           ;
+    jsr subtract32                      ; BD = BB2-temp
+
+    lda #bd - variables_start           ;
+    ldx #d1 - variables_start           ;
+    ldy #temp - variables_start         ;
+    jsr subtract32                      ; temp = BD-D1
+
+    lda temp+3                          ;
+    bpl ++                              ;
+    jmp inc_x1                          ;
+++
+
+    lda #bd - variables_start           ;
+    ldx #d1 - variables_start           ;
+    ldy #temp - variables_start         ;
+    jsr add32                           ; temp = BD+D1
+
+    lda temp+3                          ;
+    bpl ++                              ;
+    jmp dec_x1                          ;
+++
++
+    ; DX%=SGN(X1%-OX1%)
+    lda #x1 - variables_start           ;
+    ldx #ox1 - variables_start          ;
+    ldy #temp - variables_start         ; temp = X1-OX1
+    jsr subtract16                      ;
+
+    ldx #temp - variables_start         ;
+    jsr sgn16                           ;
+    sta temp                            ;
+    cmp #1                              ;
+    bne +                               ;
+    lda #0                              ;
++
+    sta temp + 1                        ; temp = SGN(temp)
+
+    lda #ox1 - variables_start          ;
+    ldx #x1 - variables_start           ;
+    jsr draw_hlines                     ;
+
+    lda #s - variables_start            ;
+    ldx #ys - variables_start           ;
+    ldy #ys - variables_start           ;
+    jsr add32                           ; YS%=YS%+S%
+
+    lda #ysquareddiff - variables_start ;
+    ldx #ysquared - variables_start     ;
+    ldy #ysquared - variables_start     ;
+    jsr add32                           ; YSQUARED%=YSQUARED%+YSQUAREDDIFF%
+
+    lda #two - variables_start          ;
+    ldx #ysquareddiff - variables_start ;
+    ldy #ysquareddiff - variables_start ;
+    jsr add32                           ; YSQUAREDDIFF%=YSQUAREDDIFF%+2
+
+    inc y                               ;
+    bne +                               ;
+    inc y+1                             ; Y=Y+1
++
+    lda #b - variables_start            ;
+    ldx #y - variables_start            ;
+    ldy #temp - variables_start         ;
+    jsr subtract16                      ; temp = B-Y
+    lda temp + 1                        ;
+    bmi +                               ;
+    jmp fory_loop                       ; IF (B - Y) >= 0 GOTO fory_loop
++
+
+    ; plot the final two points
+    lda #69                             ;
+    ldx #s - variables_start            ;
+    ldy #b - variables_start            ;
+    jsr plot_xy                         ; PLOT 69, S*4, B*4
+
+    ldx #s - variables_start            ;
+    ldy #s - variables_start            ;
+    jsr negate16                        ; Y = -Y
+    ldx #b - variables_start            ;
+    ldy #b - variables_start            ;
+    jsr negate16                        ; Y = -Y
+
+    lda #69                             ;
+    ldx #s - variables_start            ;
+    ldy #b - variables_start            ;
+    jmp plot_xy                         ; PLOT 69, S*4, B*4
+
+; ***************************************************************************************
+inc_x2
+    inc x2                              ;
+    bne +                               ;
+    inc x2 + 1                          ; X2=X2+1
++
+    lda #t - variables_start            ;
+    ldx #b - variables_start            ;
+    tay                                 ;
+    jsr add32                           ; T=T+B
+    jmp repeat_loop1                    ;
+
+; ***************************************************************************************
+dec_x2
+    lda x2                              ;
+    bne +                               ;
+    dec x2 + 1                          ; X2=X2-1
++
+    dec x2                              ;
+    lda #t - variables_start            ;
+    ldx #b - variables_start            ;
+    tay                                 ; T=T-B
+    jsr subtract32                      ;
+    jmp repeat_loop1                    ;
+
+; ***************************************************************************************
+inc_x1
+    inc x1                              ;
+    bne +                               ;
+    inc x1 + 1                          ; X1=X1+1
++
+    lda #t - variables_start            ;
+    ldx #b - variables_start            ;
+    tay                                 ;
+    jsr add32                           ; T=T+B
+    jmp repeat_loop2                    ;
+
+; ***************************************************************************************
+dec_x1
+    lda x1                              ;
+    bne +                               ;
+    dec x1 + 1                          ; X1=X1-1
++
+    dec x1                              ;
+    lda #t - variables_start            ;
+    ldx #b - variables_start            ;
+    tay                                 ; T=T-B
+    jsr subtract32                      ;
+    jmp repeat_loop2                    ;
+
+; ***************************************************************************************
+; convert 16 bit signed value into 32 bit signed value (sign extension)
+extend32
+    lda #0                              ;
+    ldx variables_start + 1,Y           ;
+    bpl +                               ;
+    lda #255                            ;
++
+    sta variables_start + 2,Y           ;
+    sta variables_start + 3,Y           ;
+    rts                                 ;
+
+; ***************************************************************************************
+draw_hlines
+    stx xvar_index                      ; index for X1 or X2, lets say X2 for these comments
+    ldx #temp - variables_start         ;
+    ldy #temp - variables_start         ;
+    jsr add16                           ; temp = temp + A (either OX1 or OX2)
+
+    ; IF temp == x2 then plot 69
+    jsr draw_hline
+
+    ldx #temp - variables_start         ;
+    ldy #temp - variables_start         ;
+    jsr negate16                        ; temp=-temp
+    ldx xvar_index                      ;
+    ldy xvar_index                      ;
+    jsr negate16                        ; X2 = -X2
+    ldx #y - variables_start            ;
+    ldy #y - variables_start            ;
+    jsr negate16                        ; Y = -Y
+
+    jsr draw_hline
+
+    ldx xvar_index                      ;
+    ldy xvar_index                      ;
+    jsr negate16                        ; X2 = -X2
+
+    ldx #y - variables_start            ;
+    ldy #y - variables_start            ;
+    jmp negate16                        ; Y = -Y
+
+; ***************************************************************************************
+draw_hline
+    ; IF temp == x2 then plot 69
+    lda temp                            ;
+    ldx xvar_index                      ;
+    cmp variables_start,X               ;
+    bne +                               ;
+    lda temp + 1                        ;
+    cmp variables_start + 1,X           ;
+    bne +                               ;
+    lda #69                             ; PLOT 69 for plotting a point
+    bne ++                              ; ALWAYS branch
++
+    lda #4                              ;
+    ldx #temp - variables_start         ;
+    ldy #y - variables_start            ;
+    jsr plot_xy                         ; MOVE  temp*4, Y*4
+    lda #5                              ;
+++
+    ldx xvar_index                      ;
+    ldy #y - variables_start            ;
+    jmp plot_xy                         ; DRAW  X2*4, Y*4
+
+; ***************************************************************************************
+set_mode
+    lda #22                             ;
+    jsr OSWRCH                          ;
+    lda #1                              ;
+    jmp OSWRCH                          ;
+
+; ***************************************************************************************
+;
+; Y = A * X
+;
+; multiplies two 32 bit unsigned integers into a 32 bit result
+;
+; On Entry:
+;   The registers are the byte offsets from variables_start to the variables:
+;   A = multiplier      (4 bytes)
+;   X = multiplicand    (4 bytes)
+;   Y = result          (4 bytes)
+;
+; ***************************************************************************************
+multiply32
+    sta multiplier_index                ;
+    stx multiplicand_index              ;
+    sty product_index                   ;
+
+    tax
+    ldy #multiplier                     ;
+    jsr copy4_to_zp                     ;
+
+    ldx multiplicand_index              ;
+    ldy #multiplicand                   ;
+    jsr copy4_to_zp                     ;
+
+    lda #32                             ; set binary count to 32
+    sta counter                         ;
+    lda #0                              ;
+    sta product + 4                     ; clear upper half of product
+    sta product + 5                     ;
+    sta product + 6                     ;
+    sta product + 7                     ;
+-
+    lsr multiplier + 3                  ; shift multiplier right
+    ror multiplier + 2                  ;
+    ror multiplier + 1                  ;
+    ror multiplier + 0                  ;
+    bcc +                               ; go rotate right if c = 0
+
+    lda product + 4                     ; get upper half of product and add multiplicand to it
+    clc                                 ;
+    adc multiplicand                    ;
+    sta product + 4                     ;
+
+    lda product + 5                     ;
+    adc multiplicand + 1                ;
+    sta product + 5                     ;
+
+    lda product + 6                     ;
+    adc multiplicand + 2                ;
+    sta product + 6                     ;
+
+    lda product + 7                     ;
+    adc multiplicand + 3                ;
+
++
+    ror                                 ; rotate partial product right
+    sta product + 7                     ;
+    ror product + 6                     ;
+    ror product + 5                     ;
+    ror product + 4                     ;
+    ror product + 3                     ;
+    ror product + 2                     ;
+    ror product + 1                     ;
+    ror product + 0                     ;
+    dec counter                         ; decrement bit count and
+    bne -                               ; loop until 32 bits are done
+
+    ; copy result (4 bytes)
+    ldx product_index                   ;
+    ldy #3                              ;
+-
+    lda product,Y                       ;
+    sta variables_start + 3,X           ;
+    dex                                 ;
+    dey                                 ;
+    bpl -                               ;
+    rts                                 ;
+
+; ***************************************************************************************
+plot_block
+    !word 0                             ; NOTE: These bytes are reversed
+    !word 0                             ; when sending to the VDU drivers
+    !byte 5                             ; PLOT type
+    !byte 25                            ; VDU 25 for PLOT
+
+; ***************************************************************************************
+plot_xy
+    sta plot_block + 4                  ;
+    lda variables_start,X               ;
+    clc                                 ;
+    adc centrex                         ;
+    sta plot_block + 3                  ;
+    lda variables_start + 1,X           ;
+    adc centrex + 1                     ;
+    sta plot_block + 2                  ;
+    lda variables_start,Y               ;
+    clc                                 ;
+    adc centrey                         ;
+    sta plot_block + 1                  ;
+    lda variables_start + 1,Y           ;
+    adc centrey + 1                     ;
+    sta plot_block + 0                  ;
+
+    asl plot_block + 1                  ;
+    rol plot_block                      ;
+    asl plot_block + 1                  ;
+    rol plot_block                      ; multiply coordinates by four
+    asl plot_block + 3                  ;
+    rol plot_block + 2                  ;
+    asl plot_block + 3                  ;
+    rol plot_block + 2                  ;
+
+    ldx #5                              ;
+-
+    lda plot_block,X                    ;
+    jsr OSWRCH                          ;
+    dex                                 ;
+    bpl -                               ;
+    rts                                 ;
+
+; ***************************************************************************************
+copy4_to_zp
+    lda variables_start,X               ;
+    sta $00,Y                           ;
+    lda variables_start + 1,X           ;
+    sta $01,Y                           ;
+    lda variables_start + 2,X           ;
+    sta $02,Y                           ;
+    lda variables_start + 3,X           ;
+    sta $03,Y                           ;
+    rts                                 ;
+
+; ***************************************************************************************
+copy2_to_zp
+    lda variables_start,X               ;
+    sta $00,Y                           ;
+    lda variables_start + 1,X           ;
+    sta $01,Y                           ;
+    rts                                 ;
+
+; ***************************************************************************************
+set_variable16_to_a
+    sta variables_start,X               ;
+    lda #0                              ;
+    sta variables_start + 1,X           ;
+    rts                                 ;
+
+; ***************************************************************************************
+set_variable32_to_a
+    sta variables_start,X               ;
+    lda #0                              ;
+    sta variables_start + 1,X           ;
+    sta variables_start + 2,X           ;
+    sta variables_start + 3,X           ;
+    rts                                 ;
+
+; ***************************************************************************************
+;
+; Y = -X
+;
+; ***************************************************************************************
+negate16
+    lda #0                              ;
+    sec                                 ;
+    sbc variables_start,X               ;
+    sta variables_start,Y               ;
+    lda #0                              ;
+    sbc variables_start + 1,X           ;
+    sta variables_start + 1,Y           ;
+    rts                                 ;
+
+; ***************************************************************************************
+;
+; Y = X
+;
+; ***************************************************************************************
+copy16
+    lda variables_start,X               ;
+    sta variables_start,Y               ;
+    lda variables_start + 1,X           ;
+    sta variables_start + 1,Y           ;
+    rts                                 ;
+
+; ***************************************************************************************
+;
+; Y = A-X
+;
+; ***************************************************************************************
+subtract16
+    sty result_index                    ;
+    sta param1_index                    ;
+    tay                                 ;
+
+    lda variables_start,Y               ;
+    sec                                 ;
+    sbc variables_start,X               ;
+    ldy result_index                    ;
+    sta variables_start,Y               ;
+    ldy param1_index                    ;
+    lda variables_start + 1,Y           ;
+    sbc variables_start + 1,X           ;
+    ldy result_index                    ;
+    sta variables_start + 1,Y           ;
+    rts                                 ;
+
+; ***************************************************************************************
+;
+; Y = A-X
+;
+; ***************************************************************************************
+subtract32
+    sty result_index                    ;
+    sta param1_index                    ;
+    tay                                 ;
+
+    lda variables_start,Y               ;
+    sec                                 ;
+    sbc variables_start,X               ;
+    ldy result_index                    ;
+    sta variables_start,Y               ;
+
+    ldy param1_index                    ;
+    lda variables_start + 1,Y           ;
+    sbc variables_start + 1,X           ;
+    ldy result_index                    ;
+    sta variables_start + 1,Y           ;
+
+    ldy param1_index                    ;
+    lda variables_start + 2,Y           ;
+    sbc variables_start + 2,X           ;
+    ldy result_index                    ;
+    sta variables_start + 2,Y           ;
+
+    ldy param1_index                    ;
+    lda variables_start + 3,Y           ;
+    sbc variables_start + 3,X           ;
+    ldy result_index                    ;
+    sta variables_start + 3,Y           ;
+    rts                                 ;
+
+; ***************************************************************************************
+;
+; Y = A+X
+;
+; ***************************************************************************************
+add32
+    sty result_index                    ;
+    sta param1_index                    ;
+    tay                                 ;
+
+    lda variables_start,Y               ;
+    clc                                 ;
+    adc variables_start,X               ;
+    ldy result_index                    ;
+    sta variables_start,Y               ;
+
+    ldy param1_index                    ;
+    lda variables_start + 1,Y           ;
+    adc variables_start + 1,X           ;
+    ldy result_index                    ;
+    sta variables_start + 1,Y           ;
+
+    ldy param1_index                    ;
+    lda variables_start + 2,Y           ;
+    adc variables_start + 2,X           ;
+    ldy result_index                    ;
+    sta variables_start + 2,Y           ;
+
+    ldy param1_index                    ;
+    lda variables_start + 3,Y           ;
+    adc variables_start + 3,X           ;
+    ldy result_index                    ;
+    sta variables_start + 3,Y           ;
+    rts                                 ;
+
+; ***************************************************************************************
+;
+; Y = A+X
+; preserves X
+;
+; ***************************************************************************************
+add16
+    sty result_index                    ;
+    sta param1_index                    ;
+    tay                                 ;
+
+    lda variables_start,Y               ;
+    clc                                 ;
+    adc variables_start,X               ;
+    ldy result_index                    ;
+    sta variables_start,Y               ;
+
+    ldy param1_index                    ;
+    lda variables_start + 1,Y           ;
+    adc variables_start + 1,X           ;
+    ldy result_index                    ;
+    sta variables_start + 1,Y           ;
+
+    rts                                 ;
+
+; ***************************************************************************************
+sgn16
+    lda variables_start + 1,X           ;
+    bmi negative                        ;
+    bne positive                        ;
+    ora variables_start + 0,X           ;
+    bne positive                        ;
+zero
+    lda #0                              ;
+    rts                                 ;
+positive
+    lda #1                              ;
+    rts                                 ;
+negative
+    lda #255                            ;
+    rts                                 ;
+
+; ***************************************************************************************
+;
+; Y = X/2
+;
+; ***************************************************************************************
+div2_32
+    lda variables_start + 3,X           ;
+    lsr                                 ;
+    sta variables_start + 3,Y           ;
+    lda variables_start + 2,X           ;
+    ror                                 ;
+    sta variables_start + 2,Y           ;
+div2_16
+    lda variables_start + 1,X           ;
+    ror                                 ;
+    sta variables_start + 1,Y           ;
+    lda variables_start + 0,X           ;
+    ror                                 ;
+    sta variables_start + 0,Y           ;
+    rts                                 ;
+
+; ***************************************************************************************
+;
+; Y = A * X
+;
+; multiplies two 16 bit unsigned integers into a 32 bit result
+;
+; On Entry:
+;   The registers are the byte offsets from variables_start to the variables:
+;   A = multiplier      (2 bytes)
+;   X = multiplicand    (2 bytes)
+;   Y = result          (4 bytes)
+;
+; ***************************************************************************************
+multiply16
+    sta multiplier_index                ;
+    stx multiplicand_index              ;
+    sty product_index                   ;
+
+    tax
+    ldy #multiplier                     ;
+    jsr copy2_to_zp                     ;
+
+    ldx multiplicand_index              ;
+    ldy #multiplicand                   ;
+    jsr copy2_to_zp                     ;
+
+    lda #16                             ; set binary count to 32
+    sta counter                         ;
+    lda #0                              ;
+    sta product + 2                     ; clear upper half of product
+    sta product + 3                     ;
+-
+    lsr multiplier + 1                  ; shift multiplier right
+    ror multiplier + 0                  ;
+    bcc +                               ; go rotate right if c = 0
+
+    lda product + 2                     ; get upper half of product and add multiplicand to it
+    clc                                 ;
+    adc multiplicand                    ;
+    sta product + 2                     ;
+
+    lda product + 3                     ;
+    adc multiplicand + 1                ;
+
++
+    ror                                 ; rotate partial product right
+    sta product + 3                     ;
+    ror product + 2                     ;
+    ror product + 1                     ;
+    ror product + 0                     ;
+    dec counter                         ; decrement bit count and
+    bne -                               ; loop until 16 bits are done
+
+    ; copy result (4 bytes)
+    ldx product_index                   ;
+    ldy #3                              ;
+-
+    lda product,Y                       ;
+    sta variables_start + 3,X           ;
+    dex                                 ;
+    dey                                 ;
+    bpl -                               ;
+    rts                                 ;
+
+; ***************************************************************************************
+result_index
+product_index
+    !byte 0
+param1_index
+multiplicand_index
+    !byte 0
+multiplier_index
+    !byte 0
+
+variables_start
+; ***************************************************************************************
+; inputs
+centrex
+    !word 160
+centrey
+    !word 128
+a
+    !word 58
+b
+    !word 100
+    !word 0         ; padding (always zero), used to make multiply32 work on this variable
+s
+    !le32 -20
+
+; workspace variables
+x1
+    !word 0
+x2
+    !word 0
+ox1
+    !word 0
+ox2
+    !word 0
+y
+    !word 0
+aa
+    !le32 0
+bb
+    !le32 0
+bb2
+    !le32 0
+bd
+    !le32 0
+dd
+    !le32 0
+ysquared
+    !le32 0
+ysquareddiff
+    !le32 0
+d1
+    !le32 0
+ys
+    !le32 0
+t
+    !le32 0
+temp
+    !le32 0
+two
+    !word 2

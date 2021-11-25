@@ -1,0 +1,53 @@
+MODE 4
+PROCellipse(160,128,58,100,20)
+END
+:
+DEFPROCellipse(CX%,CY%,A%,B%,S%)
+VDU 29,CX%*4;CY%*4;
+BB%=B%*B%
+AA%=A%*A%
+YSQUARED%=0
+YSQUAREDDIFF%=1
+X1%=-A%
+X2%=A%
+YS%=0
+FOR Y%=0 TO B%
+OX2%=X2%:OX1%=X1%
+DD%=AA%*(BB%-YSQUARED%)
+BB2%=BB%/2
+:
+T%=X2%*B%-YS%
+%%loop1%%:IF T%<0 X2%=X2%+1:T%=T%+B%:GOTO %%loop1%%
+IF T%=0 GOTO %%label1%%
+D1%=T%*T%-DD%
+BD%=B%*T%+BB2%
+IF BD%-D1% < 0 X2%=X2%-1:T%=T%-B%:GOTO %%loop1%%
+IF BD%+D1% < 0 X2%=X2%+1:T%=T%+B%:GOTO %%loop1%%
+:
+%%label1%%:DX%=SGN(X2%-OX2%)
+MOVE  (OX2%+DX%)*4, Y%*4:DRAW X2%*4, Y%*4
+MOVE -(OX2%+DX%)*4,-Y%*4:DRAW-X2%*4,-Y%*4
+:
+T%=X1%*B%-YS%
+%%loop2%%:IF T%>0 X1%=X1%-1:T%=T%-B%:GOTO %%loop2%%
+IF T%=0 GOTO %%label2%%
+D1%=T%*T%-DD%
+BD%=BB2%-B%*T%
+IF BD%-D1% < 0 X1%=X1%+1:T%=T%+B%:GOTO %%loop2%%
+IF BD%+D1% < 0 X1%=X1%-1:T%=T%-B%:GOTO %%loop2%%
+:
+%%label2%%:DX%=SGN(X1%-OX1%)
+MOVE  (OX1%+DX%)*4, Y%*4:DRAW X1%*4, Y%*4
+MOVE -(OX1%+DX%)*4,-Y%*4:DRAW-X1%*4,-Y%*4
+
+
+
+YS%=YS%+S%
+YSQUARED%=YSQUARED%+YSQUAREDDIFF%
+YSQUAREDDIFF%=YSQUAREDDIFF%+2
+NEXT
+:
+PLOT 69, S%*4, B%*4
+PLOT 69,-S%*4,-B%*4
+:
+ENDPROC
