@@ -317,34 +317,32 @@ repeat_loop2
     jsr subtract16                      ; temp=B-Y
     lda temp + 1                        ;
     bmi +                               ;
-    jmp fory_loop                       ; IF (B - Y) >= 0 GOTO fory_loop
+    ora temp                            ;
+    beq +                               ;
+    jmp fory_loop                       ; IF (B - Y) > 0 GOTO fory_loop
 +
 
-    ; plot the final two points
-    lda #69                             ;
-    ldx #s - variables_start            ;
-    ldy #b - variables_start            ;
-    jsr plot_xy                         ; PLOT 69, S*4, B*4
+    ; plot the final line
+    ; DX%=SGN(X2%-X1%):OX1%=X1%:X1%=X2%-DX%
+    lda #x2 - variables_start           ;
+    ldx #x1 - variables_start           ;
+    ldy #temp - variables_start         ; temp = X2-OX2
+    jsr subtract16                      ;
+    ldx #temp - variables_start         ;
+    jsr sgn16                           ; temp=SGN(temp)
 
-    ldx #s - variables_start            ;
-    ldy #s - variables_start            ;
-    jsr negate16                        ; Y = -Y
-    ldx #b - variables_start            ;
-    ldy #b - variables_start            ;
-    jsr negate16                        ; Y = -Y
+    ldx #x1 - variables_start           ;
+    ldy #ox1 - variables_start          ;
+    jsr copy16                          ; OX1=X1
 
-    lda #69                             ;
-    ldx #s - variables_start            ;
-    ldy #b - variables_start            ;
-    jsr plot_xy                         ; PLOT 69, S*4, B*4
+    lda #x2 - variables_start           ;
+    ldx #temp - variables_start         ;
+    ldy #x1 - variables_start           ;
+    jsr subtract16                      ; X1=X2-temp
 
-    ; restore s and b
-    ldx #s - variables_start            ;
-    ldy #s - variables_start            ;
-    jsr negate16                        ; Y = -Y
-    ldx #b - variables_start            ;
-    ldy #b - variables_start            ;
-    jmp negate16                        ; Y = -Y
+    lda #ox1 - variables_start          ;
+    ldx #x1 - variables_start           ;
+    jmp draw_hlines                     ; draw final lines
 
 ; ***************************************************************************************
 inc_x2_t2
