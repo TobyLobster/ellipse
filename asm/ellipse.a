@@ -11,44 +11,99 @@ product      = $7a
 ; ***************************************************************************************
 main
     jsr set_mode                        ;
-    jsr draw_ellipse                    ;
-    rts                                 ;
+    jmp draw_ellipse                    ;
 
 ; ***************************************************************************************
 draw_ellipse
-    lda #b - variables_start            ;
-    ldx #b - variables_start            ;
-    ldy #bb - variables_start           ;
-    jsr multiply16                      ; BB = B*B
-
     lda #a - variables_start            ;
     ldx #a - variables_start            ;
     ldy #aa - variables_start           ;
     jsr multiply16                      ; AA = A*A
 
-    lda #0                              ;
-    ldx #ysquared - variables_start     ;
-    jsr set_variable32_to_a             ; YSQUARED = 0
+    lda #b - variables_start            ;
+    ldx #b - variables_start            ;
+    ldy #bb - variables_start           ;
+    jsr multiply16                      ; BB = B*B
 
-    lda #1                              ;
-    ldx #ysquareddiff - variables_start ;
-    jsr set_variable32_to_a             ; YSQUAREDDIFF = 1
+    lda #0                              ;
+    ldx #yyaa - variables_start         ;
+    jsr set_variable32_to_a             ; YYAA = 0
+
+    lda #aa - variables_start           ;
+    ldx #bb - variables_start           ;
+    ldy #aabb - variables_start         ;
+    jsr multiply32                      ; AABB = AA*BB
+
+    ldx #aa - variables_start           ;
+    ldy #yyaa_diff - variables_start    ;
+    jsr copy32                          ; YYAA_DIFF = AA
+
 
     ldx #a - variables_start            ;
     ldy #x1 - variables_start           ;
     jsr negate16                        ; X1 = -A
 
+    lda #a - variables_start            ;
+    ldx #b - variables_start            ;
+    ldy #t2 - variables_start           ;
+    jsr multiply16                      ; T2 = A*B
+
+    ldx #t2 - variables_start           ;
+    ldy #t1 - variables_start           ;
+    jsr negate32                        ; T1 = -T2
+
+    ldx #aabb - variables_start         ;
+    ldy #tt1 - variables_start          ;
+    jsr copy32                          ; TT1 = AABB
+
+    lda #b - variables_start            ;
+    ldx #t1 - variables_start           ;
+    ldy #bt1 - variables_start          ;
+    jsr multiply32                      ; BT1 = B*T1
+
+    lda #s - variables_start            ;
+    ldx #t1 - variables_start           ;
+    ldy #st1 - variables_start          ;
+    jsr multiply32                      ; ST1 = S*T1
+
+
     ldx #a - variables_start            ;
     ldy #x2 - variables_start           ;
     jsr copy16                          ; X2 = A
+
+    ldx #aabb - variables_start         ;
+    ldy #tt2 - variables_start          ;
+    jsr copy32                          ; TT2=AABB
+
+    ldx #bt1 - variables_start          ;
+    ldy #bt2 - variables_start          ;
+    jsr negate32                        ; BT2=-BT1
+
+    ldx #st1 - variables_start          ;
+    ldy #st2 - variables_start          ;
+    jsr negate32                        ; ST2=-ST1
+
+    lda #0                              ;
+    ldx #ys - variables_start           ;
+    jsr set_variable32_to_a             ; YS = 0
 
     lda #0                              ;
     ldx #y - variables_start            ;
     jsr set_variable16_to_a             ; Y = 0
 
-    lda #0                              ;
-    ldx #ys - variables_start           ;
-    jsr set_variable32_to_a             ; YS = 0
+    ldx #bb - variables_start           ;
+    ldy #bb2 - variables_start          ;
+    jsr div2_32                         ; BB2 = BB/2
+
+    lda #s - variables_start            ;
+    ldx #b - variables_start            ;
+    ldy #sb - variables_start           ;
+    jsr multiply32                      ; SB = S*B
+
+    lda #s - variables_start            ;
+    ldx #s - variables_start            ;
+    ldy #ss - variables_start           ;
+    jsr multiply32                      ; SS = S*S
 
 fory_loop
     ldx #x1 - variables_start           ;
@@ -59,64 +114,30 @@ fory_loop
     ldy #ox2 - variables_start          ;
     jsr copy16                          ; OX2 = X2
 
-    lda #bb - variables_start           ;
-    ldx #ysquared - variables_start     ;
-    ldy #temp - variables_start         ; temp = bb-ysquared
+    lda #aabb - variables_start         ;
+    ldx #yyaa - variables_start         ;
+    ldy #dd - variables_start           ; DD=AABB-YYAA
     jsr subtract32                      ;
 
-    lda #aa - variables_start           ;
-    ldx #temp - variables_start         ;
-    ldy #dd - variables_start           ;
-    jsr multiply32                      ; DD = aa*temp
-
-    ldx #bb - variables_start           ;
-    ldy #bb2 - variables_start          ;
-    jsr div2_32                         ; BB2 = BB/2
-
-    lda #x2 - variables_start           ;
-    ldx #b - variables_start            ;
-    ldy #temp - variables_start         ;
-    jsr multiply16                      ; temp = x2*B
-
-    ldy #temp - variables_start         ;
-    jsr extend32                        ; make temp 32 bits, signed from 16 bits signed
-
-    lda #temp - variables_start         ;
-    ldx #ys - variables_start           ;
-    ldy #t - variables_start            ;
-    jsr subtract32                      ; T = temp - YS
-
 repeat_loop1
-    lda t + 3                           ;
+    lda t2 + 3                          ;
     bpl ++                              ;
-    jmp inc_x2                          ; IF T<0 THEN GOTO ...
+    jmp inc_x2_t2                       ; IF T2<0 THEN GOTO ...
 ++
-    ora t + 2                           ;
-    ora t + 1                           ;
-    ora t + 0                           ;
-    beq +                               ; IF T=0 THEN GOTO ...
+    ora t2 + 2                          ;
+    ora t2 + 1                          ;
+    ora t2 + 0                          ;
+    beq +                               ; IF T2=0 THEN GOTO ...
 
-    ; D1%=T%*T%-DD%
-    lda #t - variables_start            ;
-    ldx #t - variables_start            ;
-    ldy #temp - variables_start         ;
-    jsr multiply32                      ; temp = T*T
-
-    lda #temp - variables_start         ;
+    lda #tt2 - variables_start          ;
     ldx #dd - variables_start           ;
     ldy #d1 - variables_start           ;
-    jsr subtract32                      ; D1 = temp-DD
+    jsr subtract32                      ; D1=TT2-DD
 
-    ; BD%=B%*T%+BB2%
-    lda #b - variables_start            ;
-    ldx #t - variables_start            ;
-    ldy #temp - variables_start         ;
-    jsr multiply32                      ; temp = B*T
-
-    lda #temp - variables_start         ;
+    lda #bt2 - variables_start          ;
     ldx #bb2 - variables_start          ;
     ldy #bd - variables_start           ;
-    jsr add32                           ; BD = temp+BB2
+    jsr add32                           ; BD=BT2+BB2
 
     lda #bd - variables_start           ;
     ldx #d1 - variables_start           ;
@@ -125,7 +146,7 @@ repeat_loop1
 
     lda temp+3                          ;
     bpl ++                              ;
-    jmp dec_x2                          ; IF T<0 THEN GOTO ...
+    jmp dec_x2_t2                       ; IF temp<0 THEN GOTO ...
 ++
 
     lda #bd - variables_start           ;
@@ -135,7 +156,7 @@ repeat_loop1
 
     lda temp+3                          ;
     bpl ++                              ;
-    jmp inc_x2                          ; IF T<0 THEN GOTO ...
+    jmp inc_x2_t2                       ; IF temp<0 THEN GOTO ...
 ++
 +
     ; DX%=SGN(X2%-OX2%)
@@ -145,63 +166,32 @@ repeat_loop1
     jsr subtract16                      ;
 
     ldx #temp - variables_start         ;
-    jsr sgn16                           ;
-    sta temp                            ;
-    cmp #1                              ;
-    bne +                               ;
-    lda #0                              ;
-+
-    sta temp + 1                        ; temp = SGN(temp)
+    jsr sgn16                           ; temp=SGN(temp)
 
     lda #ox2 - variables_start          ;
     ldx #x2 - variables_start           ;
     jsr draw_hlines                     ;
 
     ; second half!
-    lda #x1 - variables_start           ;
-    ldx #b - variables_start            ;
-    ldy #temp - variables_start         ;
-    jsr multiply16                      ; temp = x1*B
-
-    ldy #temp - variables_start         ;
-    jsr extend32                        ; make temp 32 bits, signed from 16 bits signed
-
-    lda #temp - variables_start         ;
-    ldx #ys - variables_start           ;
-    ldy #t - variables_start            ;
-    jsr subtract32                      ; T = temp - YS
-
 repeat_loop2
-    lda t + 3                           ;
+    lda t1 + 3                          ;
     bmi ++                              ;
-    ora t + 2                           ;
-    ora t + 1                           ;
-    ora t + 0                           ;
+    ora t1 + 2                          ;
+    ora t1 + 1                          ;
+    ora t1 + 0                          ;
     beq +                               ; IF T=0 THEN GOTO ...
-    jmp dec_x1                          ; IF T>0 THEN GOTO ...
+    jmp dec_x1_t1                       ; IF T>0 THEN GOTO ...
 ++
 
-    ; D1%=T%*T%-DD%
-    lda #t - variables_start            ;
-    ldx #t - variables_start            ;
-    ldy #temp - variables_start         ;
-    jsr multiply32                      ; temp = T*T
-
-    lda #temp - variables_start         ;
+    lda #tt1 - variables_start          ;
     ldx #dd - variables_start           ;
     ldy #d1 - variables_start           ;
-    jsr subtract32                      ; D1 = temp-DD
-
-    ; BD%=B%*T%+BB2%
-    lda #b - variables_start            ;
-    ldx #t - variables_start            ;
-    ldy #temp - variables_start         ;
-    jsr multiply32                      ; temp = B*T
+    jsr subtract32                      ; D1=TT-DD
 
     lda #bb2 - variables_start          ;
-    ldx #temp - variables_start         ;
+    ldx #bt1 - variables_start          ;
     ldy #bd - variables_start           ;
-    jsr subtract32                      ; BD = BB2-temp
+    jsr subtract32                      ; BD=BB2-BT1
 
     lda #bd - variables_start           ;
     ldx #d1 - variables_start           ;
@@ -210,7 +200,7 @@ repeat_loop2
 
     lda temp+3                          ;
     bpl ++                              ;
-    jmp inc_x1                          ;
+    jmp inc_x1_t1                       ;
 ++
 
     lda #bd - variables_start           ;
@@ -220,7 +210,7 @@ repeat_loop2
 
     lda temp+3                          ;
     bpl ++                              ;
-    jmp dec_x1                          ;
+    jmp dec_x1_t1                       ;
 ++
 +
     ; DX%=SGN(X1%-OX1%)
@@ -230,32 +220,92 @@ repeat_loop2
     jsr subtract16                      ;
 
     ldx #temp - variables_start         ;
-    jsr sgn16                           ;
-    sta temp                            ;
-    cmp #1                              ;
-    bne +                               ;
-    lda #0                              ;
-+
-    sta temp + 1                        ; temp = SGN(temp)
+    jsr sgn16                           ; temp=SGN(temp)
 
     lda #ox1 - variables_start          ;
     ldx #x1 - variables_start           ;
     jsr draw_hlines                     ;
 
-    lda #s - variables_start            ;
-    ldx #ys - variables_start           ;
+    lda #tt2 - variables_start          ;
+    ldx #st2 - variables_start          ;
+    ldy #tt2 - variables_start          ;
+    jsr subtract32                      ; TT2-=ST2
+
+    lda #tt2 - variables_start          ;
+    ldx #st2 - variables_start          ;
+    ldy #tt2 - variables_start          ;
+    jsr subtract32                      ; TT2-=ST2    (again)
+
+    lda #tt2 - variables_start          ;
+    ldx #ss - variables_start           ;
+    ldy #tt2 - variables_start          ;
+    jsr add32                           ; TT2+=SS
+
+
+    lda #tt1 - variables_start          ;
+    ldx #st1 - variables_start          ;
+    ldy #tt1 - variables_start          ;
+    jsr subtract32                      ; TT1-=ST1
+
+    lda #tt1 - variables_start          ;
+    ldx #st1 - variables_start          ;
+    ldy #tt1 - variables_start          ;
+    jsr subtract32                      ; TT1-=ST1    (again)
+
+    lda #tt1 - variables_start          ;
+    ldx #ss - variables_start           ;
+    ldy #tt1 - variables_start          ;
+    jsr add32                           ; TT1+=SS
+
+    lda #ys - variables_start           ;
+    ldx #s - variables_start            ;
     ldy #ys - variables_start           ;
-    jsr add32                           ; YS%=YS%+S%
+    jsr add32                           ; YS+=S
 
-    lda #ysquareddiff - variables_start ;
-    ldx #ysquared - variables_start     ;
-    ldy #ysquared - variables_start     ;
-    jsr add32                           ; YSQUARED%=YSQUARED%+YSQUAREDDIFF%
+    lda #st2 - variables_start          ;
+    ldx #ss - variables_start           ;
+    ldy #st2 - variables_start          ;
+    jsr subtract32                      ; ST2-=SS
 
-    lda #two - variables_start          ;
-    ldx #ysquareddiff - variables_start ;
-    ldy #ysquareddiff - variables_start ;
-    jsr add32                           ; YSQUAREDDIFF%=YSQUAREDDIFF%+2
+    lda #st1 - variables_start          ;
+    ldx #ss - variables_start           ;
+    ldy #st1 - variables_start          ;
+    jsr subtract32                      ; ST1-=SS
+
+    lda #yyaa - variables_start         ;
+    ldx #yyaa_diff - variables_start    ;
+    ldy #yyaa - variables_start         ;
+    jsr add32                           ; YYAA+=YYA_DIFF
+
+    lda #yyaa_diff - variables_start    ;
+    ldx #aa - variables_start           ;
+    ldy #yyaa_diff - variables_start    ;
+    jsr add32                           ; YYAA_DIFF+=AA
+
+    lda #yyaa_diff - variables_start    ;
+    ldx #aa - variables_start           ;
+    ldy #yyaa_diff - variables_start    ;
+    jsr add32                           ; YYAA_DIFF+=AA   (again)
+
+    lda #bt2 - variables_start          ;
+    ldx #sb - variables_start           ;
+    ldy #bt2 - variables_start          ;
+    jsr subtract32                      ; BT2-=SB
+
+    lda #bt1 - variables_start          ;
+    ldx #sb - variables_start           ;
+    ldy #bt1 - variables_start          ;
+    jsr subtract32                      ; BT1-=SB
+
+    lda #t2 - variables_start           ;
+    ldx #s - variables_start            ;
+    ldy #t2 - variables_start           ;
+    jsr subtract32                      ; T2-=S
+
+    lda #t1 - variables_start           ;
+    ldx #s - variables_start            ;
+    ldy #t1 - variables_start           ;
+    jsr subtract32                      ; T1-=S
 
     inc y                               ;
     bne +                               ;
@@ -264,7 +314,7 @@ repeat_loop2
     lda #b - variables_start            ;
     ldx #y - variables_start            ;
     ldy #temp - variables_start         ;
-    jsr subtract16                      ; temp = B-Y
+    jsr subtract16                      ; temp=B-Y
     lda temp + 1                        ;
     bmi +                               ;
     jmp fory_loop                       ; IF (B - Y) >= 0 GOTO fory_loop
@@ -286,56 +336,168 @@ repeat_loop2
     lda #69                             ;
     ldx #s - variables_start            ;
     ldy #b - variables_start            ;
-    jmp plot_xy                         ; PLOT 69, S*4, B*4
+    jsr plot_xy                         ; PLOT 69, S*4, B*4
+
+    ; restore s and b
+    ldx #s - variables_start            ;
+    ldy #s - variables_start            ;
+    jsr negate16                        ; Y = -Y
+    ldx #b - variables_start            ;
+    ldy #b - variables_start            ;
+    jmp negate16                        ; Y = -Y
 
 ; ***************************************************************************************
-inc_x2
+inc_x2_t2
     inc x2                              ;
     bne +                               ;
     inc x2 + 1                          ; X2=X2+1
 +
-    lda #t - variables_start            ;
+    lda #t2 - variables_start           ;
     ldx #b - variables_start            ;
-    tay                                 ;
-    jsr add32                           ; T=T+B
+    ldy #t2 - variables_start           ;
+    jsr add32                           ; T2+=B
+
+    lda #tt2 - variables_start          ;
+    ldx #bt2 - variables_start          ;
+    ldy #tt2 - variables_start          ;
+    jsr add32                           ; TT2+=BT2
+
+    lda #tt2 - variables_start          ;
+    ldx #bt2 - variables_start          ;
+    ldy #tt2 - variables_start          ;
+    jsr add32                           ; TT2+=BT2 (again)
+
+    lda #tt2 - variables_start          ;
+    ldx #bb - variables_start           ;
+    ldy #tt2 - variables_start          ;
+    jsr add32                           ; TT2+=BB
+
+    lda #bt2 - variables_start          ;
+    ldx #bb - variables_start           ;
+    ldy #bt2 - variables_start          ;
+    jsr add32                           ; BT2+=BB
+
+    lda #st2 - variables_start          ;
+    ldx #sb - variables_start           ;
+    ldy #st2 - variables_start          ;
+    jsr add32                           ; ST2+=SB
+
     jmp repeat_loop1                    ;
 
 ; ***************************************************************************************
-dec_x2
+dec_x2_t2
     lda x2                              ;
     bne +                               ;
-    dec x2 + 1                          ; X2=X2-1
+    dec x2 + 1                          ; X2-=1
 +
     dec x2                              ;
-    lda #t - variables_start            ;
+
+    lda #t2 - variables_start           ;
     ldx #b - variables_start            ;
-    tay                                 ; T=T-B
+    tay                                 ; T2-=B
     jsr subtract32                      ;
+
+    lda #tt2 - variables_start          ;
+    ldx #bt2 - variables_start          ;
+    ldy #tt2 - variables_start          ;
+    jsr subtract32                      ; TT2-=BT2
+
+    lda #tt2 - variables_start          ;
+    ldx #bt2 - variables_start          ;
+    ldy #tt2 - variables_start          ;
+    jsr subtract32                      ; TT2-=BT2 (again)
+
+    lda #tt2 - variables_start          ;
+    ldx #bb - variables_start           ;
+    ldy #tt2 - variables_start          ;
+    jsr add32                           ; TT2+=BB
+
+    lda #bt2 - variables_start          ;
+    ldx #bb - variables_start           ;
+    ldy #bt2 - variables_start          ;
+    jsr subtract32                      ; BT2-=BB
+
+    lda #st2 - variables_start          ;
+    ldx #sb - variables_start           ;
+    ldy #st2 - variables_start          ;
+    jsr subtract32                      ; ST2-=SB
     jmp repeat_loop1                    ;
 
 ; ***************************************************************************************
-inc_x1
+inc_x1_t1
     inc x1                              ;
     bne +                               ;
-    inc x1 + 1                          ; X1=X1+1
+    inc x1 + 1                          ; X1+=1
 +
-    lda #t - variables_start            ;
+    lda #t1 - variables_start           ;
     ldx #b - variables_start            ;
-    tay                                 ;
-    jsr add32                           ; T=T+B
+    ldy #t1 - variables_start           ;
+    jsr add32                           ; T1+=B
+
+    lda #tt1 - variables_start          ;
+    ldx #bt1 - variables_start          ;
+    ldy #tt1 - variables_start          ;
+    jsr add32                           ; TT1+=BT1
+
+    lda #tt1 - variables_start          ;
+    ldx #bt1 - variables_start          ;
+    ldy #tt1 - variables_start          ;
+    jsr add32                           ; TT1+=BT1 (again)
+
+    lda #tt1 - variables_start          ;
+    ldx #bb - variables_start           ;
+    ldy #tt1 - variables_start          ;
+    jsr add32                           ; TT1+=BB
+
+    lda #bt1 - variables_start          ;
+    ldx #bb - variables_start           ;
+    ldy #bt1 - variables_start          ;
+    jsr add32                           ; BT1+=BB
+
+    lda #st1 - variables_start          ;
+    ldx #sb - variables_start           ;
+    ldy #st1 - variables_start          ;
+    jsr add32                           ; ST1+=SB
+
     jmp repeat_loop2                    ;
 
 ; ***************************************************************************************
-dec_x1
+dec_x1_t1
     lda x1                              ;
     bne +                               ;
-    dec x1 + 1                          ; X1=X1-1
+    dec x1 + 1                          ; X1-=1
 +
     dec x1                              ;
-    lda #t - variables_start            ;
+
+    lda #t1 - variables_start           ;
     ldx #b - variables_start            ;
-    tay                                 ; T=T-B
+    tay                                 ; T1-=B
     jsr subtract32                      ;
+
+    lda #tt1 - variables_start          ;
+    ldx #bt1 - variables_start          ;
+    ldy #tt1 - variables_start          ;
+    jsr subtract32                      ; TT1-=BT1
+
+    lda #tt1 - variables_start          ;
+    ldx #bt1 - variables_start          ;
+    ldy #tt1 - variables_start          ;
+    jsr subtract32                      ; TT1-=BT1 (again)
+
+    lda #tt1 - variables_start          ;
+    ldx #bb - variables_start           ;
+    ldy #tt1 - variables_start          ;
+    jsr add32                           ; TT1+=BB
+
+    lda #bt1 - variables_start          ;
+    ldx #bb - variables_start           ;
+    ldy #bt1 - variables_start          ;
+    jsr subtract32                      ; BT1-=BB
+
+    lda #st1 - variables_start          ;
+    ldx #sb - variables_start           ;
+    ldy #st1 - variables_start          ;
+    jsr subtract32                      ; ST1-=SB
     jmp repeat_loop2                    ;
 
 ; ***************************************************************************************
@@ -358,7 +520,7 @@ draw_hlines
     jsr add16                           ; temp = temp + A (either OX1 or OX2)
 
     ; IF temp == x2 then plot 69
-    jsr draw_hline
+    jsr draw_hline                      ;
 
     ldx #temp - variables_start         ;
     ldy #temp - variables_start         ;
@@ -585,14 +747,40 @@ negate16
 
 ; ***************************************************************************************
 ;
+; Y = -X
+;
+; ***************************************************************************************
+negate32
+    lda #0                              ;
+    sec                                 ;
+    sbc variables_start,X               ;
+    sta variables_start,Y               ;
+    lda #0                              ;
+    sbc variables_start + 1,X           ;
+    sta variables_start + 1,Y           ;
+    lda #0                              ;
+    sbc variables_start + 2,X           ;
+    sta variables_start + 2,Y           ;
+    lda #0                              ;
+    sbc variables_start + 3,X           ;
+    sta variables_start + 3,Y           ;
+    rts                                 ;
+
+; ***************************************************************************************
+;
 ; Y = X
 ;
 ; ***************************************************************************************
+copy32
+    lda variables_start + 3,X           ;
+    sta variables_start + 3,Y           ;
+    lda variables_start + 2,X           ;
+    sta variables_start + 2,Y           ;
 copy16
-    lda variables_start,X               ;
-    sta variables_start,Y               ;
     lda variables_start + 1,X           ;
     sta variables_start + 1,Y           ;
+    lda variables_start,X               ;
+    sta variables_start,Y               ;
     rts                                 ;
 
 ; ***************************************************************************************
@@ -721,12 +909,19 @@ sgn16
     bne positive                        ;
 zero
     lda #0                              ;
+    sta variables_start + 0,X           ;
+    sta variables_start + 1,X           ;
     rts                                 ;
 positive
     lda #1                              ;
+    sta variables_start + 0,X           ;
+    lda #0                              ;
+    sta variables_start + 1,X           ;
     rts                                 ;
 negative
     lda #255                            ;
+    sta variables_start + 0,X           ;
+    sta variables_start + 1,X           ;
     rts                                 ;
 
 ; ***************************************************************************************
@@ -860,17 +1055,39 @@ bd
     !le32 0
 dd
     !le32 0
-ysquared
-    !le32 0
-ysquareddiff
-    !le32 0
 d1
     !le32 0
 ys
     !le32 0
-t
+t1
+    !le32 0
+t2
+    !le32 0
+tt1
+    !le32 0
+tt2
     !le32 0
 temp
     !le32 0
-two
-    !word 2
+yyaa
+    !le32 0
+yyaa_diff
+    !le32 0
+aabb
+    !le32 0
+x1b
+    !le32 0
+x2b
+    !le32 0
+st1
+    !le32 0
+st2
+    !le32 0
+ss
+    !le32 0
+sb
+    !le32 0
+bt1
+    !le32 0
+bt2
+    !le32 0
