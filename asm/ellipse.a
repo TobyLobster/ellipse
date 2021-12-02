@@ -1,10 +1,20 @@
 OSWRCH = $FFEE
 
 xvar_index   = $70
-counter      = $71
-multiplier   = $72
-multiplicand = $76
-product      = $7a
+yvar_index   = $71
+counter      = $72
+multiplier   = $73
+multiplicand = $77
+product      = $7b
+
+result_index        = $83
+product_index       = $83
+param1_index        = $84
+multiplicand_index  = $84
+multiplier_index    = $85
+col1                = $86
+col2                = $87
+last_row_flag       = $88
 
 * = $1900
 
@@ -87,10 +97,6 @@ draw_ellipse
     ldx #ys - variables_start           ;
     jsr set_variable32_to_a             ; YS = 0
 
-    lda #0                              ;
-    ldx #y - variables_start            ;
-    jsr set_variable16_to_a             ; Y = 0
-
     ldx #bb - variables_start           ;
     ldy #bb2 - variables_start          ;
     jsr div2_32                         ; BB2 = BB/2
@@ -104,6 +110,49 @@ draw_ellipse
     ldx #s - variables_start            ;
     ldy #ss - variables_start           ;
     jsr multiply32                      ; SS = S*S
+
+    lda #0                              ;
+    ldx #oy1 - variables_start          ;
+    jsr set_variable16_to_a             ; OY1 = 0
+
+    lda #0                              ;
+    ldx #oy2 - variables_start          ;
+    jsr set_variable16_to_a             ; OY2 = 0
+
+    ldx #x1 - variables_start           ;
+    ldy #oox1 - variables_start         ;
+    jsr copy16                          ; OOX1 = X1
+
+    ldx #x2 - variables_start           ;
+    ldy #oox2 - variables_start         ;
+    jsr copy16                          ; OOX2 = X2
+
+    lda #0                              ;
+    ldx #odeltax1 - variables_start     ;
+    jsr set_variable16_to_a             ; ODELTAX1 = 0
+
+    lda #1                              ;
+    ldx #odeltax2 - variables_start     ;
+    jsr set_variable16_to_a             ; ODELTAX2 = 0
+
+    lda #1                              ;
+    sta col1                            ;
+    lda #2                              ;
+    sta col2                            ;
+
+    ldx #0                              ;
+    lda b                               ;
+    cmp #1                              ;
+    bne +                               ;
+    lda b+1                             ;
+    bne +                               ;
+    ldx #255                            ;
++
+    stx last_row_flag                   ;
+
+    lda #0                              ;
+    ldx #y - variables_start            ;
+    jsr set_variable16_to_a             ; Y = 0
 
 fory_loop
     ldx #x1 - variables_start           ;
@@ -119,15 +168,16 @@ fory_loop
     ldy #dd - variables_start           ; DD=AABB-YYAA
     jsr subtract32                      ;
 
+    ; first half!
 repeat_loop1
     lda t2 + 3                          ;
-    bpl ++                              ;
+    bpl +                               ;
     jmp inc_x2_t2                       ; IF T2<0 THEN GOTO ...
-++
++
     ora t2 + 2                          ;
     ora t2 + 1                          ;
     ora t2 + 0                          ;
-    beq +                               ; IF T2=0 THEN GOTO ...
+    beq ++                              ; IF T2=0 THEN GOTO ...
 
     lda #tt2 - variables_start          ;
     ldx #dd - variables_start           ;
@@ -145,9 +195,9 @@ repeat_loop1
     jsr subtract32                      ; temp = BD-D1
 
     lda temp+3                          ;
-    bpl ++                              ;
+    bpl +                               ;
     jmp dec_x2_t2                       ; IF temp<0 THEN GOTO ...
-++
++
 
     lda #bd - variables_start           ;
     ldx #d1 - variables_start           ;
@@ -157,20 +207,95 @@ repeat_loop1
     lda temp+3                          ;
     bpl ++                              ;
     jmp inc_x2_t2                       ; IF temp<0 THEN GOTO ...
+
 ++
-+
-    ; DX%=SGN(X2%-OX2%)
+    ; IF DELTAX1%=ODELTAX1% AND Y%<B%-1:GOTO%%incforloop%%:REM we are building a straight-line segment so don't draw anything for now
     lda #x2 - variables_start           ;
     ldx #ox2 - variables_start          ;
-    ldy #temp - variables_start         ; temp = X2-OX2
+    ldy #deltax2 - variables_start      ; DELTAX2 = X2-OX2
     jsr subtract16                      ;
 
-    ldx #temp - variables_start         ;
+    lda last_row_flag                   ;
+    bmi ++                              ; IF Y%=B%-1:GOTO...
+
+    lda deltax2                         ;
+    cmp odeltax2                        ;
+    bne +                               ;
+    lda deltax2 + 1                     ;
+    cmp odeltax2 + 1                    ;
+    bne +                               ; IF DELTAX2%<>ODELTAX2% THEN GOTO...
+
+    ldx #deltax2 - variables_start      ;
+    ldy #temp - variables_start         ;
+    jsr abs16                           ; temp=ABS(deltax2)
+
+    lda temp + 1                        ;
+    bne +                               ;
+    lda temp                            ;
+    cmp #2                              ;
+    bcc repeat_loop2                    ; if temp<2 then GOTO...
+
++
+    ; IF ABS(ODELTAX2%)=1 AND DELTAX2%=0 AND Y%<B%-1 AND Y%=OY2%+1 ODELTAX2%=DELTAX2%:OOX2%=OX2%:GOTO%%reploop2%%
+    ldx #odeltax2 - variables_start     ;
+    ldy #temp - variables_start         ;
+    jsr abs16                           ; temp=ABS(odeltax2)
+    lda temp + 1                        ;
+    bne ++                              ;
+    lda temp                            ;
+    cmp #2                              ;
+    bcs ++                              ; IF temp>=2 GOTO...
+
+abs_is_one
+    lda deltax2 + 1                     ;
+    ora deltax2                         ;
+    bne ++                              ; IF DELTAX2<>0 GOTO...
+
+deltax2_is_zero
+    lda #oy1 - variables_start          ;
+    ldx #one - variables_start          ;
+    ldy #temp - variables_start         ; temp = oy1 + 1
+    jsr add16                           ;
+
+    lda y                               ;
+    cmp temp                            ;
+    bne ++                              ;
+    lda y + 1                           ;
+    cmp temp + 1                        ;
+    bne ++                              ; IF Y<>OY1+1 THEN GOTO...
+
+    ldx #deltax2 - variables_start      ;
+    ldy #odeltax2 - variables_start     ;
+    jsr copy16                          ; ODELTAX2=DELTAX2
+    ldx #ox2 - variables_start          ;
+    ldy #oox2 - variables_start         ;
+    jsr copy16                          ; OOX2=OX2
+    jmp repeat_loop2                    ; we are building a straight-line segment so don't draw anything for now
+
+++
+    lda #ox2 - variables_start          ;
+    ldx #oox2 - variables_start         ;
+    ldy #tempX - variables_start        ; tempX = OX2-OOX2
+    jsr subtract16                      ;
+    ldx #tempX - variables_start        ;
     jsr sgn16                           ; temp=SGN(temp)
 
-    lda #ox2 - variables_start          ;
-    ldx #x2 - variables_start           ;
+    lda #oox2 - variables_start         ;
+    ldx #ox2 - variables_start          ;
+    ldy #oy2 - variables_start          ;
     jsr draw_hlines                     ;
+
+    ldx #y - variables_start            ;
+    ldy #oy2 - variables_start          ;
+    jsr copy16                          ; OY2%=Y%
+
+    ldx #ox2 - variables_start          ;
+    ldy #oox2 - variables_start         ;
+    jsr copy16                          ; OOX2 = OX2
+
+    ldx #deltax2 - variables_start      ;
+    ldy #odeltax2 - variables_start     ;
+    jsr copy16                          ; ODELTAX2 = DELTAX2
 
     ; second half!
 repeat_loop2
@@ -213,18 +338,97 @@ repeat_loop2
     jmp dec_x1_t1                       ;
 ++
 +
-    ; DX%=SGN(X1%-OX1%)
     lda #x1 - variables_start           ;
     ldx #ox1 - variables_start          ;
-    ldy #temp - variables_start         ; temp = X1-OX1
+    ldy #deltax1 - variables_start      ; DELTAX1 = X1-OX1
     jsr subtract16                      ;
 
-    ldx #temp - variables_start         ;
-    jsr sgn16                           ; temp=SGN(temp)
+    lda last_row_flag                   ;
+    bmi ++                              ; IF Y%=B%-1:GOTO...
 
+    lda deltax1                         ;
+    cmp odeltax1                        ;
+    bne +                               ;
+    lda deltax1 + 1                     ;
+    cmp odeltax1 + 1                    ;
+    bne +                               ; IF DELTAX1%<>ODELTAX1% THEN GOTO...
+
+    ldx #deltax1 - variables_start      ;
+    ldy #temp - variables_start         ;
+    jsr abs16                           ; temp=ABS(deltax1)
+
+    lda temp + 1                        ;
+    bne +                               ;
+    lda temp                            ;
+    cmp #2                              ;
+    bcc next                            ; if temp<2 then GOTO...
+
++
+    ldx #odeltax1 - variables_start     ;
+    ldy #temp - variables_start         ;
+    jsr abs16                           ; temp=ABS(odeltax1)
+    lda temp + 1                        ;
+    bne ++                              ;
+    lda temp                            ;
+    cmp #2                              ;
+    bcs ++                              ; IF temp>=2 GOTO...
+
+abs_is_one_2
+    lda deltax1 + 1                     ;
+    ora deltax1                         ;
+    bne ++                              ; IF DELTAX1<>0 GOTO...
+
+deltax1_is_zero
+    lda #oy1 - variables_start          ;
+    ldx #one - variables_start          ;
+    ldy #temp - variables_start         ; temp = oy1 + 1
+    jsr add16                           ;
+
+    lda y                               ;
+    cmp temp                            ;
+    bne ++                              ;
+    lda y + 1                           ;
+    cmp temp + 1                        ;
+    bne ++                              ; IF Y<>OY1+1 THEN GOTO...
+
+    ldx #deltax1 - variables_start      ;
+    ldy #odeltax1 - variables_start     ;
+    jsr copy16                          ; ODELTAX1=DELTAX1
+    ldx #ox1 - variables_start          ;
+    ldy #oox1 - variables_start         ;
+    jsr copy16                          ; OOX1=OX1
+    jmp next                            ; we are building a straight-line segment so don't draw anything for now
+
+++
     lda #ox1 - variables_start          ;
-    ldx #x1 - variables_start           ;
+    ldx #oox1 - variables_start         ;
+    ldy #tempX - variables_start        ; tempX = OX1-OOX1
+    jsr subtract16                      ;
+    ldx #tempX - variables_start        ;
+    jsr sgn16                           ; tempX=SGN(tempX)
+
+    lda #oox1 - variables_start         ;
+    ldx #ox1 - variables_start          ;
+    ldy #oy1 - variables_start          ;
     jsr draw_hlines                     ;
+
+    ldx #y - variables_start            ;
+    ldy #oy1 - variables_start          ;
+    jsr copy16                          ; OY1%=Y%
+
+    ldx #ox1 - variables_start          ;
+    ldy #oox1 - variables_start         ;
+    jsr copy16                          ; OOX1 = OX1
+
+    ldx #deltax1 - variables_start      ;
+    ldy #odeltax1 - variables_start     ;
+    jsr copy16                          ; ODELTAX1 = DELTAX1
+
+next
+    lda last_row_flag                   ;
+    beq +                               ;
+    jmp do_last_row                     ; if (last row) THEN GOTO...
++
 
     lda #tt2 - variables_start          ;
     ldx #st2 - variables_start          ;
@@ -309,46 +513,115 @@ repeat_loop2
 
     inc y                               ;
     bne +                               ;
-    inc y+1                             ; Y=Y+1
+    inc y+1                             ; Y+=1
 +
-    lda #b - variables_start            ;
-    ldx #y - variables_start            ;
+
+    lda #y - variables_start            ;
+    ldx #b - variables_start            ;
     ldy #temp - variables_start         ;
-    jsr subtract16                      ; temp=B-Y
-    lda temp + 1                        ;
-    bmi +                               ;
-    ora temp                            ;
-    beq +                               ;
+    jsr subtract16                      ; temp=Y-B
+
+    lda temp                            ;
+    ora temp + 1                        ;
+    bne not_last                        ; if (Y-B)<>-1 GOTO...
+    lda #255                            ;
+    sta last_row_flag                   ;
+not_last
     jmp fory_loop                       ; IF (B - Y) > 0 GOTO fory_loop
+
+do_last_row
+    inc y                               ;
+    bne +                               ;
+    inc y+1                             ; Y+=1
 +
 
-    ; plot the final line
-    ; DX%=SGN(X2%-X1%):OX1%=X1%:X1%=X2%-DX%
+    ; finish off old line segments:
     lda #x2 - variables_start           ;
-    ldx #x1 - variables_start           ;
-    ldy #temp - variables_start         ; temp = X2-OX2
+    ldx #ox2 - variables_start          ;
+    ldy #tempX - variables_start        ; tempX = X2-OX2
     jsr subtract16                      ;
-    ldx #temp - variables_start         ;
-    jsr sgn16                           ; temp=SGN(temp)
+    ldx #tempX - variables_start        ;
+    jsr sgn16                           ; tempX = SGN(tempX)
 
-    ldx #x1 - variables_start           ;
-    ldy #ox1 - variables_start          ;
-    jsr copy16                          ; OX1=X1
+    lda #y - variables_start            ;
+    ldx #one - variables_start          ;
+    ldy #ym1 - variables_start          ;
+    jsr subtract16                      ; ym1 = Y - 1
 
-    lda #x2 - variables_start           ;
-    ldx #temp - variables_start         ;
-    ldy #x1 - variables_start           ;
-    jsr subtract16                      ; X1=X2-temp
+    lda #ox2 - variables_start          ;
+    ldx #x2 - variables_start           ;
+    ldy #ym1 - variables_start          ; MOVE  (OX2%+DX%)*4, (Y-1)*4:DRAW X2%*4, (Y-1)*4
+    jsr draw_hlines                     ; MOVE -(OX2%+DX%)*4,-(Y-1)*4:DRAW-X2%*4,-(Y-1)*4
+
+
+    lda #x1 - variables_start           ;
+    ldx #ox1 - variables_start          ;
+    ldy #tempX - variables_start        ; tempX = X1-OX1
+    jsr subtract16                      ;
+    ldx #tempX - variables_start        ;
+    jsr sgn16                           ; tempX = SGN(tempX)
+
+    lda #y - variables_start            ;
+    ldx #one - variables_start          ;
+    ldy #ym1 - variables_start          ;
+    jsr subtract16                      ; ym1 = Y - 1
 
     lda #ox1 - variables_start          ;
     ldx #x1 - variables_start           ;
-    jmp draw_hlines                     ; draw final lines
+    ldy #ym1 - variables_start          ; MOVE  (OX1%+DX%)*4, ym1*4:DRAW X1%*4, (Y-1)*4
+    jsr draw_hlines                     ; MOVE -(OX1%+DX%)*4,-ym1*4:DRAW-X1%*4,-(Y-1)*4
+
+    ; plot the final line
+    ; temp=SGN(X2%-X1%)
+    lda #x2 - variables_start           ;
+    ldx #x1 - variables_start           ;
+    ldy #tempX - variables_start        ; tempX = X2-X1
+    jsr subtract16                      ;
+    ldx #tempX - variables_start        ;
+    jsr sgn16                           ; tempX=SGN(tempX)
+
+    lda #x1 - variables_start           ;
+    ldx #tempX - variables_start        ;
+    ldy #x1 - variables_start           ;
+    jsr add16                           ; X1 += tempX
+
+    lda #x2 - variables_start           ;
+    ldx #tempX - variables_start        ;
+    ldy #x2 - variables_start           ;
+    jsr subtract16                      ; X2 -= tempX
+
+    jsr draw_hline2                     ; draw lines:B=-B
+
+    ldx #x1 - variables_start           ;
+    ldy #x1 - variables_start           ;
+    jsr negate16                        ; X1 = -X1
+
+    ldx #x2 - variables_start           ;
+    ldy #x2 - variables_start           ;
+    jsr negate16                        ; X2 = -X2
+
+draw_hline2
+    lda #4                              ;
+    sta plot_type                       ;
+    ldx #x1 - variables_start           ;
+    ldy #b - variables_start            ;
+    jsr plot_xy                         ; MOVE  X1*4, B*4
+
+    lda #5                              ;
+    sta plot_type                       ;
+    ldx #x2 - variables_start           ;
+    ldy #b - variables_start            ;
+    jsr plot_xy                         ; DRAW  X2*4, B*4
+
+    ldx #b - variables_start            ;
+    ldy #b - variables_start            ;
+    jmp negate16                        ; B = -B
 
 ; ***************************************************************************************
 inc_x2_t2
     inc x2                              ;
     bne +                               ;
-    inc x2 + 1                          ; X2=X2+1
+    inc x2 + 1                          ; X2+=1
 +
     lda #t2 - variables_start           ;
     ldx #b - variables_start            ;
@@ -392,8 +665,8 @@ dec_x2_t2
 
     lda #t2 - variables_start           ;
     ldx #b - variables_start            ;
-    tay                                 ; T2-=B
-    jsr subtract32                      ;
+    tay                                 ;
+    jsr subtract32                      ; T2-=B
 
     lda #tt2 - variables_start          ;
     ldx #bt2 - variables_start          ;
@@ -419,6 +692,7 @@ dec_x2_t2
     ldx #sb - variables_start           ;
     ldy #st2 - variables_start          ;
     jsr subtract32                      ; ST2-=SB
+
     jmp repeat_loop1                    ;
 
 ; ***************************************************************************************
@@ -496,79 +770,109 @@ dec_x1_t1
     ldx #sb - variables_start           ;
     ldy #st1 - variables_start          ;
     jsr subtract32                      ; ST1-=SB
+
     jmp repeat_loop2                    ;
 
 ; ***************************************************************************************
 ; convert 16 bit signed value into 32 bit signed value (sign extension)
-extend32
-    lda #0                              ;
-    ldx variables_start + 1,Y           ;
-    bpl +                               ;
-    lda #255                            ;
-+
-    sta variables_start + 2,Y           ;
-    sta variables_start + 3,Y           ;
-    rts                                 ;
+;extend32
+;    lda #0                              ;
+;    ldx variables_start + 1,Y           ;
+;    bpl +                               ;
+;    lda #255                            ;
+;+
+;    sta variables_start + 2,Y           ;
+;    sta variables_start + 3,Y           ;
+;    rts                                 ;
 
 ; ***************************************************************************************
+; MOVE  (A+tempX)*4, Y*4:DRAW  X*4, (Y%-1)*4
+; MOVE -(A+tempX)*4,-Y*4:DRAW -X*4,-(Y%-1)*4
+; On Entry:
+;   A is index for OOX1 or OOX2
+;   X is index for OX1 or OX2
+;   Y is index for OX2 or OY2
+;   tempX is DX
 draw_hlines
-    stx xvar_index                      ; index for X1 or X2, lets say X2 for these comments
-    ldx #temp - variables_start         ;
-    ldy #temp - variables_start         ;
-    jsr add16                           ; temp = temp + A (either OX1 or OX2)
+    stx xvar_index                      ; index for OX1 or OX2, lets say OX2 for these comments
+    sty yvar_index                      ; index for OY1 or OY2, lets say OY2 for these comments
+    ldx #tempX - variables_start        ;
+    ldy #tempX - variables_start        ;
+    jsr add16                           ; tempX+=A (adds either OOX1 or OOX2)
 
-    ; IF temp == x2 then plot 69
-    jsr draw_hline                      ;
+    lda #y - variables_start            ;
+    ldx #one - variables_start          ;
+    ldy #tempY - variables_start        ;
+    jsr subtract16                      ; tempY=Y-1
 
-    ldx #temp - variables_start         ;
-    ldy #temp - variables_start         ;
-    jsr negate16                        ; temp=-temp
+    jsr draw_line                       ;
+
+    ldx #tempX - variables_start        ;
+    ldy #tempX - variables_start        ;
+    jsr negate16                        ; tempX=-tempX
+
+    jsr negate_coordinates              ;
+
+    jsr draw_line                       ;
+
+negate_coordinates
     ldx xvar_index                      ;
     ldy xvar_index                      ;
     jsr negate16                        ; X2 = -X2
-    ldx #y - variables_start            ;
-    ldy #y - variables_start            ;
-    jsr negate16                        ; Y = -Y
 
-    jsr draw_hline
-
-    ldx xvar_index                      ;
-    ldy xvar_index                      ;
+    ldx yvar_index                      ;
+    ldy yvar_index                      ;
     jsr negate16                        ; X2 = -X2
 
-    ldx #y - variables_start            ;
-    ldy #y - variables_start            ;
-    jmp negate16                        ; Y = -Y
+    ldx #tempY - variables_start        ;
+    ldy #tempY - variables_start        ;
+    jmp negate16                        ; tempY = -tempY
 
 ; ***************************************************************************************
-draw_hline
-    ; IF temp == x2 then plot 69
-    lda temp                            ;
+; MOVE tempX*4,variable[yvar_index]*4
+; DRAW variable[xvar_index]*4,(y-1)*4
+draw_line
+    ; IF tempX == ox2 then plot 69
     ldx xvar_index                      ;
+    lda tempX                           ;
     cmp variables_start,X               ;
     bne +                               ;
-    lda temp + 1                        ;
+
+    lda tempX + 1                       ;
     cmp variables_start + 1,X           ;
     bne +                               ;
+
     lda #69                             ; PLOT 69 for plotting a point
     bne ++                              ; ALWAYS branch
 +
+
     lda #4                              ;
-    ldx #temp - variables_start         ;
-    ldy #y - variables_start            ;
-    jsr plot_xy                         ; MOVE  temp*4, Y*4
+    sta plot_type                       ;
+    ldx #tempX - variables_start        ;
+    ldy yvar_index                      ;
+    jsr plot_xy                         ; MOVE  tempX*4, Y*4
     lda #5                              ;
 ++
+    sta plot_type                       ;
+
     ldx xvar_index                      ;
-    ldy #y - variables_start            ;
-    jmp plot_xy                         ; DRAW  X2*4, Y*4
+    ldy #tempY - variables_start        ;
+    jmp plot_xy                         ; DRAW  X2*4, tempY*4
 
 ; ***************************************************************************************
 set_mode
-    lda #22                             ;
+    ldx #0                              ;
+-
+    lda mode_change,X                   ;
     jsr OSWRCH                          ;
-    lda #1                              ;
-    jmp OSWRCH                          ;
+    inx                                 ;
+    cpx #mode_change_end - mode_change  ;
+    bne -                               ;
+    rts                                 ;
+
+mode_change
+    !byte 22,1
+mode_change_end
 
 ; ***************************************************************************************
 ;
@@ -654,12 +958,13 @@ multiply32
 plot_block
     !word 0                             ; NOTE: These bytes are reversed
     !word 0                             ; when sending to the VDU drivers
+plot_type
     !byte 5                             ; PLOT type
     !byte 25                            ; VDU 25 for PLOT
 
 ; ***************************************************************************************
+; PLOT plot_type, centreX + variables[X],centreY + variables[Y]
 plot_xy
-    sta plot_block + 4                  ;
     lda variables_start,X               ;
     clc                                 ;
     adc centrex                         ;
@@ -899,6 +1204,22 @@ add16
     rts                                 ;
 
 ; ***************************************************************************************
+abs16
+    lda variables_start + 1,X           ;
+    bpl +                               ;
+    eor #255                            ;
+    sta variables_start + 1,Y           ;
+    lda variables_start,X               ;
+    eor #255                            ;
+    lda variables_start,Y               ;
+    rts                                 ;
++
+    sta variables_start + 1,Y           ;
+    lda variables_start,X               ;
+    lda variables_start,Y               ;
+    rts                                 ;
+
+; ***************************************************************************************
 sgn16
     lda variables_start + 1,X           ;
     bmi negative                        ;
@@ -1007,16 +1328,6 @@ multiply16
     bpl -                               ;
     rts                                 ;
 
-; ***************************************************************************************
-result_index
-product_index
-    !byte 0
-param1_index
-multiplicand_index
-    !byte 0
-multiplier_index
-    !byte 0
-
 variables_start
 ; ***************************************************************************************
 ; inputs
@@ -1041,7 +1352,25 @@ ox1
     !word 0
 ox2
     !word 0
+oox1
+    !word 0
+oox2
+    !word 0
+deltax1
+    !word 0
+deltax2
+    !word 0
+odeltax1
+    !word 0
+odeltax2
+    !word 0
 y
+    !word 0
+oy1
+    !word 0
+oy2
+    !word 0
+ym1
     !word 0
 aa
     !le32 0
@@ -1067,6 +1396,10 @@ tt2
     !le32 0
 temp
     !le32 0
+tempX
+    !le32 0
+tempY
+    !le32 0
 yyaa
     !le32 0
 yyaa_diff
@@ -1089,3 +1422,5 @@ bt1
     !le32 0
 bt2
     !le32 0
+one
+    !word 1
