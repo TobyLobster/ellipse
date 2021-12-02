@@ -5,6 +5,11 @@ counter      = $71
 multiplier   = $72
 multiplicand = $76
 product      = $7a
+result_index        = $82
+product_index       = $82
+param1_index        = $83
+multiplicand_index  = $83
+multiplier_index    = $84
 
 * = $1900
 
@@ -497,18 +502,6 @@ dec_x1_t1
     ldy #st1 - variables_start          ;
     jsr subtract32                      ; ST1-=SB
     jmp repeat_loop2                    ;
-
-; ***************************************************************************************
-; convert 16 bit signed value into 32 bit signed value (sign extension)
-extend32
-    lda #0                              ;
-    ldx variables_start + 1,Y           ;
-    bpl +                               ;
-    lda #255                            ;
-+
-    sta variables_start + 2,Y           ;
-    sta variables_start + 3,Y           ;
-    rts                                 ;
 
 ; ***************************************************************************************
 draw_hlines
@@ -1008,15 +1001,6 @@ multiply16
     rts                                 ;
 
 ; ***************************************************************************************
-result_index
-product_index
-    !byte 0
-param1_index
-multiplicand_index
-    !byte 0
-multiplier_index
-    !byte 0
-
 variables_start
 ; ***************************************************************************************
 ; inputs
