@@ -13,7 +13,7 @@
 130YS%=0:BB2%=BB%/2:SB%=S%*B%:SS%=S%*S%
 140OY1%=1:OY2%=1:OOX1%=X1%:OOX2%=X2%:ODELTAX1%=0:ODELTAX2%=0:col1%=1:col2%=2:REM used for straight line segments
 150PLOT 69,A%*4,0:PLOT 69,-A%*4,0
-160FOR Y%=0 TO B%-1
+160FOR Y%=1 TO B%-1
 170OX2%=X2%:OX1%=X1%
 180DD%=AABB%-YYAA%
 190:
@@ -30,7 +30,7 @@
 300IF ABS(ODELTAX2%)=1 AND DELTAX2%=0 AND Y%=OY2%+1 ODELTAX2%=DELTAX2%:OOX2%=OX2%:GOTO390:REM fix for consecutive vlines
 310DX%=SGN(OX2%-OOX2%)
 320REM finish off old straight-line segment:
-330GCOL3,3:REMcol2%:col2%=3-col2%
+330GCOL3,col2%:col2%=3-col2%
 340MOVE  (OOX2%+DX%)*4, OY2%*4:DRAW OX2%*4, (Y%-1)*4
 350MOVE -(OOX2%+DX%)*4,-OY2%*4:DRAW-OX2%*4,-(Y%-1)*4
 360OY2%=Y%:OOX2%=OX2%:ODELTAX2%=DELTAX2%
@@ -49,7 +49,7 @@
 490IF ABS(ODELTAX1%)=1 AND DELTAX1%=0 AND Y%=OY1%+1:ODELTAX1%=DELTAX1%:OOX1%=OX1%:GOTO570:REM fix for consecutive vlines
 500DX%=SGN(OX1%-OOX1%)
 510REM finish off old straight-line segment:
-520GCOL3,3:REMcol1%:col1%=3-col1%
+520GCOL3,col1%:col1%=3-col1%
 530MOVE  (OOX1%+DX%)*4, OY1%*4:DRAW OX1%*4,(Y%-1)*4
 540MOVE -(OOX1%+DX%)*4,-OY1%*4:DRAW-OX1%*4,-(Y%-1)*4
 550OY1%=Y%:OOX1%=OX1%:ODELTAX1%=DELTAX1%
@@ -63,12 +63,12 @@
 630Y%=B%
 640REM finish off old line segments:
 650DX%=SGN(X2%-OX2%)
-660GCOL3,3:REMcol2%:col2%=3-col2%
+660GCOL3,col2%:col2%=3-col2%
 670MOVE  (OX2%+DX%)*4, (Y%-1)*4:DRAW X2%*4, (Y%-1)*4
 680MOVE -(OX2%+DX%)*4,-(Y%-1)*4:DRAW-X2%*4,-(Y%-1)*4
 690:
 700DX%=SGN(X1%-OX1%)
-710GCOL3,3:REMcol1%:col1%=3-col1%
+710GCOL3,col1%:col1%=3-col1%
 720MOVE  (OX1%+DX%)*4, (Y%-1)*4:DRAW X1%*4, (Y%-1)*4
 730MOVE -(OX1%+DX%)*4,-(Y%-1)*4:DRAW-X1%*4,-(Y%-1)*4
 740:
