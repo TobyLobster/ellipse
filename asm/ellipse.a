@@ -446,86 +446,69 @@ next
     jmp do_last_row                     ; if (last row) THEN GOTO...
 +
 
-    lda #tt2 - variables_start          ;
     ldx #st2 - variables_start          ;
     ldy #tt2 - variables_start          ;
-    jsr subtract32                      ; TT2-=ST2
+    jsr decrement32                     ; TT2-=ST2
 
-    lda #tt2 - variables_start          ;
     ldx #st2 - variables_start          ;
     ldy #tt2 - variables_start          ;
-    jsr subtract32                      ; TT2-=ST2    (again)
+    jsr decrement32                     ; TT2-=ST2    (again)
 
-    lda #tt2 - variables_start          ;
     ldx #ss - variables_start           ;
     ldy #tt2 - variables_start          ;
-    jsr add32                           ; TT2+=SS
+    jsr increment32                     ; TT2+=SS
 
-
-    lda #tt1 - variables_start          ;
     ldx #st1 - variables_start          ;
     ldy #tt1 - variables_start          ;
-    jsr subtract32                      ; TT1-=ST1
+    jsr decrement32                     ; TT1-=ST1
 
-    lda #tt1 - variables_start          ;
     ldx #st1 - variables_start          ;
     ldy #tt1 - variables_start          ;
-    jsr subtract32                      ; TT1-=ST1    (again)
+    jsr decrement32                     ; TT1-=ST1    (again)
 
-    lda #tt1 - variables_start          ;
     ldx #ss - variables_start           ;
     ldy #tt1 - variables_start          ;
-    jsr add32                           ; TT1+=SS
+    jsr increment32                     ; TT1+=SS
 
-    lda #ys - variables_start           ;
     ldx #s - variables_start            ;
     ldy #ys - variables_start           ;
-    jsr add32                           ; YS+=S
+    jsr increment32                     ; YS+=S
 
-    lda #st2 - variables_start          ;
     ldx #ss - variables_start           ;
     ldy #st2 - variables_start          ;
-    jsr subtract32                      ; ST2-=SS
+    jsr decrement32                     ; ST2-=SS
 
-    lda #st1 - variables_start          ;
     ldx #ss - variables_start           ;
     ldy #st1 - variables_start          ;
-    jsr subtract32                      ; ST1-=SS
+    jsr decrement32                     ; ST1-=SS
 
-    lda #yyaa - variables_start         ;
     ldx #yyaa_diff - variables_start    ;
     ldy #yyaa - variables_start         ;
-    jsr add32                           ; YYAA+=YYA_DIFF
+    jsr increment32                     ; YYAA+=YYA_DIFF
 
-    lda #yyaa_diff - variables_start    ;
     ldx #aa - variables_start           ;
     ldy #yyaa_diff - variables_start    ;
-    jsr add32                           ; YYAA_DIFF+=AA
+    jsr increment32                     ; YYAA_DIFF+=AA
 
-    lda #yyaa_diff - variables_start    ;
     ldx #aa - variables_start           ;
     ldy #yyaa_diff - variables_start    ;
-    jsr add32                           ; YYAA_DIFF+=AA   (again)
+    jsr increment32                     ; YYAA_DIFF+=AA   (again)
 
-    lda #bt2 - variables_start          ;
     ldx #sb - variables_start           ;
     ldy #bt2 - variables_start          ;
-    jsr subtract32                      ; BT2-=SB
+    jsr decrement32                     ; BT2-=SB
 
-    lda #bt1 - variables_start          ;
     ldx #sb - variables_start           ;
     ldy #bt1 - variables_start          ;
-    jsr subtract32                      ; BT1-=SB
+    jsr decrement32                     ; BT1-=SB
 
-    lda #t2 - variables_start           ;
     ldx #s - variables_start            ;
     ldy #t2 - variables_start           ;
-    jsr subtract32                      ; T2-=S
+    jsr decrement32                     ; T2-=S
 
-    lda #t1 - variables_start           ;
     ldx #s - variables_start            ;
     ldy #t1 - variables_start           ;
-    jsr subtract32                      ; T1-=S
+    jsr decrement32                     ; T1-=S
 
     inc y                               ;
     bne +                               ;
@@ -660,35 +643,29 @@ inc_x2_t2
     bne +                               ;
     inc x2 + 1                          ; X2+=1
 +
-    lda #t2 - variables_start           ;
     ldx #b - variables_start            ;
     ldy #t2 - variables_start           ;
-    jsr add32                           ; T2+=B
+    jsr increment32                     ; T2+=B
 
-    lda #tt2 - variables_start          ;
     ldx #bt2 - variables_start          ;
     ldy #tt2 - variables_start          ;
-    jsr add32                           ; TT2+=BT2
+    jsr increment32                     ; TT2+=BT2
 
-    lda #tt2 - variables_start          ;
     ldx #bt2 - variables_start          ;
     ldy #tt2 - variables_start          ;
-    jsr add32                           ; TT2+=BT2 (again)
+    jsr increment32                     ; TT2+=BT2 (again)
 
-    lda #tt2 - variables_start          ;
     ldx #bb - variables_start           ;
     ldy #tt2 - variables_start          ;
-    jsr add32                           ; TT2+=BB
+    jsr increment32                     ; TT2+=BB
 
-    lda #bt2 - variables_start          ;
     ldx #bb - variables_start           ;
     ldy #bt2 - variables_start          ;
-    jsr add32                           ; BT2+=BB
+    jsr increment32                     ; BT2+=BB
 
-    lda #st2 - variables_start          ;
     ldx #sb - variables_start           ;
     ldy #st2 - variables_start          ;
-    jsr add32                           ; ST2+=SB
+    jsr increment32                     ; ST2+=SB
 
     jmp repeat_loop1                    ;
 
@@ -700,35 +677,29 @@ dec_x2_t2
 +
     dec x2                              ;
 
-    lda #t2 - variables_start           ;
     ldx #b - variables_start            ;
-    tay                                 ;
-    jsr subtract32                      ; T2-=B
+    ldy #t2 - variables_start           ;
+    jsr decrement32                     ; T2-=B
 
-    lda #tt2 - variables_start          ;
     ldx #bt2 - variables_start          ;
-    tay                                 ;
-    jsr subtract32                      ; TT2-=BT2
+    ldy #tt2 - variables_start          ;
+    jsr decrement32                     ; TT2-=BT2
 
-    lda #tt2 - variables_start          ;
     ldx #bt2 - variables_start          ;
-    tay                                 ;
-    jsr subtract32                      ; TT2-=BT2 (again)
+    ldy #tt2 - variables_start          ;
+    jsr decrement32                     ; TT2-=BT2 (again)
 
-    lda #tt2 - variables_start          ;
     ldx #bb - variables_start           ;
-    tay                                 ;
-    jsr add32                           ; TT2+=BB
+    ldy #tt2 - variables_start          ;
+    jsr increment32                     ; TT2+=BB
 
-    lda #bt2 - variables_start          ;
     ldx #bb - variables_start           ;
-    tay                                 ;
-    jsr subtract32                      ; BT2-=BB
+    ldy #bt2 - variables_start          ;
+    jsr decrement32                     ; BT2-=BB
 
-    lda #st2 - variables_start          ;
     ldx #sb - variables_start           ;
-    tay                                 ;
-    jsr subtract32                      ; ST2-=SB
+    ldy #st2 - variables_start          ;
+    jsr decrement32                     ; ST2-=SB
 
     jmp repeat_loop1                    ;
 
@@ -738,35 +709,29 @@ inc_x1_t1
     bne +                               ;
     inc x1 + 1                          ; X1+=1
 +
-    lda #t1 - variables_start           ;
     ldx #b - variables_start            ;
     ldy #t1 - variables_start           ;
-    jsr add32                           ; T1+=B
+    jsr increment32                     ; T1+=B
 
-    lda #tt1 - variables_start          ;
     ldx #bt1 - variables_start          ;
     ldy #tt1 - variables_start          ;
-    jsr add32                           ; TT1+=BT1
+    jsr increment32                     ; TT1+=BT1
 
-    lda #tt1 - variables_start          ;
     ldx #bt1 - variables_start          ;
     ldy #tt1 - variables_start          ;
-    jsr add32                           ; TT1+=BT1 (again)
+    jsr increment32                     ; TT1+=BT1 (again)
 
-    lda #tt1 - variables_start          ;
     ldx #bb - variables_start           ;
     ldy #tt1 - variables_start          ;
-    jsr add32                           ; TT1+=BB
+    jsr increment32                     ; TT1+=BB
 
-    lda #bt1 - variables_start          ;
     ldx #bb - variables_start           ;
     ldy #bt1 - variables_start          ;
-    jsr add32                           ; BT1+=BB
+    jsr increment32                     ; BT1+=BB
 
-    lda #st1 - variables_start          ;
     ldx #sb - variables_start           ;
     ldy #st1 - variables_start          ;
-    jsr add32                           ; ST1+=SB
+    jsr increment32                     ; ST1+=SB
 
     jmp repeat_loop2                    ;
 
@@ -778,35 +743,29 @@ dec_x1_t1
 +
     dec x1                              ;
 
-    lda #t1 - variables_start           ;
     ldx #b - variables_start            ;
-    tay                                 ; T1-=B
-    jsr subtract32                      ;
+    ldy #t1 - variables_start           ; T1-=B
+    jsr decrement32                     ;
 
-    lda #tt1 - variables_start          ;
     ldx #bt1 - variables_start          ;
     ldy #tt1 - variables_start          ;
-    jsr subtract32                      ; TT1-=BT1
+    jsr decrement32                     ; TT1-=BT1
 
-    lda #tt1 - variables_start          ;
     ldx #bt1 - variables_start          ;
     ldy #tt1 - variables_start          ;
-    jsr subtract32                      ; TT1-=BT1 (again)
+    jsr decrement32                     ; TT1-=BT1 (again)
 
-    lda #tt1 - variables_start          ;
     ldx #bb - variables_start           ;
     ldy #tt1 - variables_start          ;
-    jsr add32                           ; TT1+=BB
+    jsr increment32                     ; TT1+=BB
 
-    lda #bt1 - variables_start          ;
     ldx #bb - variables_start           ;
     ldy #bt1 - variables_start          ;
-    jsr subtract32                      ; BT1-=BB
+    jsr decrement32                     ; BT1-=BB
 
-    lda #st1 - variables_start          ;
     ldx #sb - variables_start           ;
     ldy #st1 - variables_start          ;
-    jsr subtract32                      ; ST1-=SB
+    jsr decrement32                     ; ST1-=SB
 
     jmp repeat_loop2                    ;
 
@@ -1083,6 +1042,19 @@ set_variable32_to_a
     rts                                 ;
 
 ; ***************************************************************************************
+just_copy
+    sta variables_start + 1,Y           ;
+    lda variables_start,X               ;
+    sta variables_start,Y               ;
+    rts                                 ;
+
+; ***************************************************************************************
+abs16
+    lda variables_start + 1,X           ;
+    bpl just_copy                       ;
+    ; fall through...
+
+; ***************************************************************************************
 ;
 ; Y = -X
 ;
@@ -1194,6 +1166,29 @@ subtract32
 
 ; ***************************************************************************************
 ;
+; Y = Y-X
+;
+; ***************************************************************************************
+decrement32
+    lda variables_start,Y               ;
+    sec                                 ;
+    sbc variables_start,X               ;
+    sta variables_start,Y               ;
+    lda variables_start + 1,Y           ;
+    sbc variables_start + 1,X           ;
+    sta variables_start + 1,Y           ;
+
+    lda variables_start + 2,Y           ;
+    sbc variables_start + 2,X           ;
+    sta variables_start + 2,Y           ;
+
+    lda variables_start + 3,Y           ;
+    sbc variables_start + 3,X           ;
+    sta variables_start + 3,Y           ;
+    rts                                 ;
+
+; ***************************************************************************************
+;
 ; Y = A+X
 ;
 ; ***************************************************************************************
@@ -1229,6 +1224,30 @@ add32
 
 ; ***************************************************************************************
 ;
+; Y = Y+X
+;
+; ***************************************************************************************
+increment32
+    lda variables_start,Y               ;
+    clc                                 ;
+    adc variables_start,X               ;
+    sta variables_start,Y               ;
+
+    lda variables_start + 1,Y           ;
+    adc variables_start + 1,X           ;
+    sta variables_start + 1,Y           ;
+
+    lda variables_start + 2,Y           ;
+    adc variables_start + 2,X           ;
+    sta variables_start + 2,Y           ;
+
+    lda variables_start + 3,Y           ;
+    adc variables_start + 3,X           ;
+    sta variables_start + 3,Y           ;
+    rts                                 ;
+
+; ***************************************************************************************
+;
 ; Y = A+X
 ; preserves X
 ;
@@ -1253,39 +1272,26 @@ add16
     rts                                 ;
 
 ; ***************************************************************************************
-abs16
-    lda variables_start + 1,X           ;
-    bpl +                               ;
-    lda #zero - variables_start         ; variable[Y]=zero - variable[X]
-    jmp subtract16                      ;
-
-+
-    sta variables_start + 1,Y           ;
-    lda variables_start,X               ;
-    sta variables_start,Y               ;
-    rts                                 ;
-
-; ***************************************************************************************
 sgn16
     lda variables_start + 1,X           ;
     bmi negative                        ;
     bne positive                        ;
     ora variables_start + 0,X           ;
-    bne positive                        ;
+    beq iszero                          ;
+    ; fall through...
 
-    ; value is zero
-    lda #0                              ;
-    sta variables_start + 0,X           ;
-    sta variables_start + 1,X           ;
-    rts                                 ;
 positive
     lda #1                              ;
     sta variables_start + 0,X           ;
     lda #0                              ;
     sta variables_start + 1,X           ;
     rts                                 ;
+
 negative
     lda #255                            ;
+    ; fall through...
+
+iszero
     sta variables_start + 0,X           ;
     sta variables_start + 1,X           ;
     rts                                 ;
