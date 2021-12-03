@@ -18,63 +18,66 @@
 180:
 190REM first half
 200IF T2%<0 X2%=X2%+1:T2%=T2%+B%:TT2%=TT2%+2*BT2%+BB%:BT2%=BT2%+BB%:ST2%=ST2%+SB%:GOTO 200
-210IF T2%=0 GOTO 260
+210IF T2%=0 GOTO 270
 220D1%=TT2%-DD%
 230BD%=BT2%+BB2%
 240IF BD%-D1% < 0 X2%=X2%-1:T2%=T2%-B%:TT2%=TT2%-2*BT2%+BB%:BT2%=BT2%-BB%:ST2%=ST2%-SB%:GOTO 200
 250IF BD%+D1% < 0 X2%=X2%+1:T2%=T2%+B%:TT2%=TT2%+2*BT2%+BB%:BT2%=BT2%+BB%:ST2%=ST2%+SB%:GOTO 200
-260DELTAX2%=X2%-OX2%
-270IF Y%=B%-1 GOTO 300
-280IF DELTAX2%=ODELTAX2% AND ABS(DELTAX2%)<2 GOTO380:REM we are building a straight-line segment so don't draw anything for now
-290IF ABS(ODELTAX2%)=1 AND DELTAX2%=0 AND Y%=OY2%+1 ODELTAX2%=DELTAX2%:OOX2%=OX2%:GOTO380:REM fix for consecutive vlines
-300DX%=SGN(OX2%-OOX2%)
-310REM finish off old straight-line segment:
-320GCOL3,col2%:col2%=3-col2%
-330MOVE  (OOX2%+DX%)*4, OY2%*4:DRAW OX2%*4, (Y%-1)*4
-340MOVE -(OOX2%+DX%)*4,-OY2%*4:DRAW-OX2%*4,-(Y%-1)*4
-350OY2%=Y%:OOX2%=OX2%:ODELTAX2%=DELTAX2%
-360:
-370REM second half
-380IF T1%>0 X1%=X1%-1:T1%=T1%-B%:TT1%=TT1%-2*BT1%+BB%:BT1%=BT1%-BB%:ST1%=ST1%-SB%:GOTO 380
-390IF T1%=0 GOTO 450
-400D1%=TT1%-DD%
-410BD%=BB2%-BT1%
-420IF BD%-D1% < 0 X1%=X1%+1:T1%=T1%+B%:TT1%=TT1%+2*BT1%+BB%:BT1%=BT1%+BB%:ST1% = ST1%+SB%:GOTO 380
-430IF BD%+D1% < 0 X1%=X1%-1:T1%=T1%-B%:TT1%=TT1%-2*BT1%+BB%:BT1%=BT1%-BB%:ST1% = ST1%-SB%:GOTO 380
-440:
-450DELTAX1%=X1%-OX1%
-460IF Y%=B%-1 GOTO 490
-470IF DELTAX1%=ODELTAX1% AND ABS(DELTAX1%)<2:GOTO560:REM we are building a straight-line segment so don't draw anything for now
-480IF ABS(ODELTAX1%)=1 AND DELTAX1%=0 AND Y%=OY1%+1:ODELTAX1%=DELTAX1%:OOX1%=OX1%:GOTO560:REM fix for consecutive vlines
-490DX%=SGN(OX1%-OOX1%)
-500REM finish off old straight-line segment:
-510GCOL3,col1%:col1%=3-col1%
-520MOVE  (OOX1%+DX%)*4, OY1%*4:DRAW OX1%*4,(Y%-1)*4
-530MOVE -(OOX1%+DX%)*4,-OY1%*4:DRAW-OX1%*4,-(Y%-1)*4
-540OY1%=Y%:OOX1%=OX1%:ODELTAX1%=DELTAX1%
-550:
-560TT2%=TT2%-2*ST2%+SS%:TT1%=TT1%-2*ST1%+SS%:YS%=YS%+S%:ST2%=ST2%-SS%:ST1%=ST1%-SS%
-570YYAA%=YYAA%+YYAA_DIFF%
-580YYAA_DIFF%=YYAA_DIFF%+2*AA%
-590BT2%=BT2%-SB%:BT1%=BT1%-SB%:T2%=T2%-S%:T1%=T1%-S%
-600NEXT
-610:
-620Y%=B%
-630REM finish off old line segments:
-640DX%=SGN(X2%-OX2%)
-650GCOL3,col2%:col2%=3-col2%
-660MOVE  (OX2%+DX%)*4, (Y%-1)*4:DRAW X2%*4, (Y%-1)*4
-670MOVE -(OX2%+DX%)*4,-(Y%-1)*4:DRAW-X2%*4,-(Y%-1)*4
-680:
-690DX%=SGN(X1%-OX1%)
-700GCOL3,col1%:col1%=3-col1%
-710MOVE  (OX1%+DX%)*4, (Y%-1)*4:DRAW X1%*4, (Y%-1)*4
-720MOVE -(OX1%+DX%)*4,-(Y%-1)*4:DRAW-X1%*4,-(Y%-1)*4
-730:
-740REM finish off cap and tail hlines of ellipse
-750GCOL3,3
-760DX%=SGN(X2%-X1%):X1%=X1%+DX%:X2%=X2%-DX%
-770MOVE  X1%*4, B%*4:DRAW X2%*4, B%*4
-780MOVE -X1%*4,-B%*4:DRAW-X2%*4,-B%*4
-790:
-800ENDPROC
+260:
+270DELTAX2%=X2%-OX2%
+280IF Y%=B%-1 GOTO 310
+290IF DELTAX2%=ODELTAX2% AND ABS(DELTAX2%)<2 GOTO400:REM we are building a straight-line segment so don't draw anything for now
+300IF ABS(ODELTAX2%)=1 AND DELTAX2%=0 AND Y%=OY2%+1 GOTO370:REM fix for consecutive vlines
+310DX%=SGN(OX2%-OOX2%)
+320REM finish off old straight-line segment:
+330GCOL3,col2%:col2%=3-col2%
+340MOVE  (OOX2%+DX%)*4, OY2%*4:DRAW OX2%*4, (Y%-1)*4
+350MOVE -(OOX2%+DX%)*4,-OY2%*4:DRAW-OX2%*4,-(Y%-1)*4
+360OY2%=Y%
+370OOX2%=OX2%:ODELTAX2%=DELTAX2%
+380:
+390REM second half
+400IF T1%>0 X1%=X1%-1:T1%=T1%-B%:TT1%=TT1%-2*BT1%+BB%:BT1%=BT1%-BB%:ST1%=ST1%-SB%:GOTO 400
+410IF T1%=0 GOTO 470
+420D1%=TT1%-DD%
+430BD%=BB2%-BT1%
+440IF BD%-D1% < 0 X1%=X1%+1:T1%=T1%+B%:TT1%=TT1%+2*BT1%+BB%:BT1%=BT1%+BB%:ST1% = ST1%+SB%:GOTO 400
+450IF BD%+D1% < 0 X1%=X1%-1:T1%=T1%-B%:TT1%=TT1%-2*BT1%+BB%:BT1%=BT1%-BB%:ST1% = ST1%-SB%:GOTO 400
+460:
+470DELTAX1%=X1%-OX1%
+480IF Y%=B%-1 GOTO 510
+490IF DELTAX1%=ODELTAX1% AND ABS(DELTAX1%)<2:GOTO590:REM we are building a straight-line segment so don't draw anything for now
+500IF ABS(ODELTAX1%)=1 AND DELTAX1%=0 AND Y%=OY1%+1 GOTO570:REM fix for consecutive vlines
+510DX%=SGN(OX1%-OOX1%)
+520REM finish off old straight-line segment:
+530GCOL3,col1%:col1%=3-col1%
+540MOVE  (OOX1%+DX%)*4, OY1%*4:DRAW OX1%*4,(Y%-1)*4
+550MOVE -(OOX1%+DX%)*4,-OY1%*4:DRAW-OX1%*4,-(Y%-1)*4
+560OY1%=Y%
+570OOX1%=OX1%:ODELTAX1%=DELTAX1%
+580:
+590TT2%=TT2%-2*ST2%+SS%:TT1%=TT1%-2*ST1%+SS%:YS%=YS%+S%:ST2%=ST2%-SS%:ST1%=ST1%-SS%
+600YYAA%=YYAA%+YYAA_DIFF%
+610YYAA_DIFF%=YYAA_DIFF%+2*AA%
+620BT2%=BT2%-SB%:BT1%=BT1%-SB%:T2%=T2%-S%:T1%=T1%-S%
+630NEXT
+640:
+650Y%=B%
+660REM finish off old line segments:
+670DX%=SGN(X2%-OX2%)
+680GCOL3,col2%:col2%=3-col2%
+690MOVE  (OX2%+DX%)*4, (Y%-1)*4:DRAW X2%*4, (Y%-1)*4
+700MOVE -(OX2%+DX%)*4,-(Y%-1)*4:DRAW-X2%*4,-(Y%-1)*4
+710:
+720DX%=SGN(X1%-OX1%)
+730GCOL3,col1%:col1%=3-col1%
+740MOVE  (OX1%+DX%)*4, (Y%-1)*4:DRAW X1%*4, (Y%-1)*4
+750MOVE -(OX1%+DX%)*4,-(Y%-1)*4:DRAW-X1%*4,-(Y%-1)*4
+760:
+770REM finish off cap and tail hlines of ellipse
+780GCOL3,3
+790DX%=SGN(X2%-X1%):X1%=X1%+DX%:X2%=X2%-DX%
+800MOVE  X1%*4, B%*4:DRAW X2%*4, B%*4
+810MOVE -X1%*4,-B%*4:DRAW-X2%*4,-B%*4
+820:
+830ENDPROC

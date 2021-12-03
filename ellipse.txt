@@ -23,16 +23,18 @@ D1%=TT2%-DD%
 BD%=BT2%+BB2%
 IF BD%-D1% < 0 X2%=X2%-1:T2%=T2%-B%:TT2%=TT2%-2*BT2%+BB%:BT2%=BT2%-BB%:ST2%=ST2%-SB%:GOTO %%reploop1%%
 IF BD%+D1% < 0 X2%=X2%+1:T2%=T2%+B%:TT2%=TT2%+2*BT2%+BB%:BT2%=BT2%+BB%:ST2%=ST2%+SB%:GOTO %%reploop1%%
+:
 %%postloop1%%:DELTAX2%=X2%-OX2%
 IF Y%=B%-1 GOTO %%after_ifs1%%
 IF DELTAX2%=ODELTAX2% AND ABS(DELTAX2%)<2 GOTO%%reploop2%%:REM we are building a straight-line segment so don't draw anything for now
-IF ABS(ODELTAX2%)=1 AND DELTAX2%=0 AND Y%=OY2%+1 ODELTAX2%=DELTAX2%:OOX2%=OX2%:GOTO%%reploop2%%:REM fix for consecutive vlines
+IF ABS(ODELTAX2%)=1 AND DELTAX2%=0 AND Y%=OY2%+1 GOTO%%post_first_half%%:REM fix for consecutive vlines
 %%after_ifs1%%:DX%=SGN(OX2%-OOX2%)
 REM finish off old straight-line segment:
 GCOL3,col2%:col2%=3-col2%
 MOVE  (OOX2%+DX%)*4, OY2%*4:DRAW OX2%*4, (Y%-1)*4
 MOVE -(OOX2%+DX%)*4,-OY2%*4:DRAW-OX2%*4,-(Y%-1)*4
-OY2%=Y%:OOX2%=OX2%:ODELTAX2%=DELTAX2%
+OY2%=Y%
+%%post_first_half%%:OOX2%=OX2%:ODELTAX2%=DELTAX2%
 :
 REM second half
 %%reploop2%%:IF T1%>0 X1%=X1%-1:T1%=T1%-B%:TT1%=TT1%-2*BT1%+BB%:BT1%=BT1%-BB%:ST1%=ST1%-SB%:GOTO %%reploop2%%
@@ -45,13 +47,14 @@ IF BD%+D1% < 0 X1%=X1%-1:T1%=T1%-B%:TT1%=TT1%-2*BT1%+BB%:BT1%=BT1%-BB%:ST1% = ST
 %%postloop2%%:DELTAX1%=X1%-OX1%
 IF Y%=B%-1 GOTO %%after_ifs2%%
 IF DELTAX1%=ODELTAX1% AND ABS(DELTAX1%)<2:GOTO%%next%%:REM we are building a straight-line segment so don't draw anything for now
-IF ABS(ODELTAX1%)=1 AND DELTAX1%=0 AND Y%=OY1%+1:ODELTAX1%=DELTAX1%:OOX1%=OX1%:GOTO%%next%%:REM fix for consecutive vlines
+IF ABS(ODELTAX1%)=1 AND DELTAX1%=0 AND Y%=OY1%+1 GOTO%%post_second_half%%:REM fix for consecutive vlines
 %%after_ifs2%%:DX%=SGN(OX1%-OOX1%)
 REM finish off old straight-line segment:
 GCOL3,col1%:col1%=3-col1%
 MOVE  (OOX1%+DX%)*4, OY1%*4:DRAW OX1%*4,(Y%-1)*4
 MOVE -(OOX1%+DX%)*4,-OY1%*4:DRAW-OX1%*4,-(Y%-1)*4
-OY1%=Y%:OOX1%=OX1%:ODELTAX1%=DELTAX1%
+OY1%=Y%
+%%post_second_half%%:OOX1%=OX1%:ODELTAX1%=DELTAX1%
 :
 %%next%%:TT2%=TT2%-2*ST2%+SS%:TT1%=TT1%-2*ST1%+SS%:YS%=YS%+S%:ST2%=ST2%-SS%:ST1%=ST1%-SS%
 YYAA%=YYAA%+YYAA_DIFF%

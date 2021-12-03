@@ -1,4 +1,5 @@
 OSWRCH = $FFEE
+COLOUR = 0
 
 xvar_index   = $70
 yvar_index   = $71
@@ -12,18 +13,18 @@ product_index       = $83
 param1_index        = $84
 multiplicand_index  = $84
 multiplier_index    = $85
-col1                = $86
-col2                = $87
-last_row_flag       = $88
+last_row_flag       = $86
+!if COLOUR = 1 {
+col1                = $87
+col2                = $88
+}
 
 * = $1900
 
 ; ***************************************************************************************
 main
-    jsr set_mode                        ;
-    jmp draw_ellipse                    ;
+;    jsr set_mode                        ;
 
-; ***************************************************************************************
 draw_ellipse
     lda #a - variables_start            ;
     ldx #a - variables_start            ;
@@ -135,10 +136,12 @@ draw_ellipse
     ldx #odeltax2 - variables_start     ;
     jsr set_variable16_to_a             ; ODELTAX2 = 0
 
+!if COLOUR = 1 {
     lda #1                              ;
     sta col1                            ;
     lda #2                              ;
     sta col2                            ;
+}
 
     ldx #0                              ;
     lda b                               ;
@@ -216,7 +219,7 @@ postloop1
     jsr subtract16                      ;
 
     lda last_row_flag                   ;
-    bmi ++                              ; IF Y%=B%-1:GOTO...
+    bmi after_ifs1                      ; IF Y%=B%-1:GOTO...
 
     lda deltax2                         ;
     cmp odeltax2                        ;
@@ -241,15 +244,15 @@ postloop1
     ldy #temp - variables_start         ;
     jsr abs16                           ; temp=ABS(odeltax2)
     lda temp + 1                        ;
-    bne ++                              ;
+    bne after_ifs1                      ;
     lda temp                            ;
     cmp #1                              ;
-    bne ++                              ; IF temp<>1 GOTO...
+    bne after_ifs1                      ; IF temp<>1 GOTO...
 
     ; ... AND DELTAX2%=0
     lda deltax2 + 1                     ;
     ora deltax2                         ;
-    bne ++                              ; IF DELTAX2<>0 GOTO...
+    bne after_ifs1                      ; IF DELTAX2<>0 GOTO...
 
     ; ... AND Y%=OY2%+1
     lda #oy2 - variables_start          ;
@@ -259,23 +262,14 @@ postloop1
 
     lda y                               ;
     cmp temp                            ;
-    bne ++                              ;
+    bne after_ifs1                      ;
     lda y + 1                           ;
     cmp temp + 1                        ;
-    bne ++                              ; IF Y<>OY1+1 THEN GOTO...
+    bne after_ifs1                      ; IF Y<>OY1+1 THEN GOTO...
 
-    ldx #deltax2 - variables_start      ;
-    ldy #odeltax2 - variables_start     ;
-    jsr copy16                          ; ODELTAX2=DELTAX2
+    jmp post_first_half                 ; GOTO%%post_first_half%% : REM fix for consecutive vlines
 
-    ldx #ox2 - variables_start          ;
-    ldy #oox2 - variables_start         ;
-    jsr copy16                          ; OOX2=OX2
-
-    jmp repeat_loop2                    ; GOTO%%reploop2%% : REM fix for consecutive vlines
-
-    ; after_ifs1
-++
+after_ifs1
     lda #ox2 - variables_start          ;
     ldx #oox2 - variables_start         ;
     ldy #tempX - variables_start        ; tempX = OX2-OOX2
@@ -284,12 +278,14 @@ postloop1
     jsr sgn16                           ; temp=SGN(temp)
 
 
+!if COLOUR = 1 {
     ;GCOL3,col2%:col2%=3-col2%
     LDA col2
     JSR set_col
     LDA col2
     EOR #3
     STA col2
+}
 
     lda #oox2 - variables_start         ;
     ldx #ox2 - variables_start          ;
@@ -300,6 +296,7 @@ postloop1
     ldy #oy2 - variables_start          ;
     jsr copy16                          ; OY2%=Y%
 
+post_first_half
     ldx #ox2 - variables_start          ;
     ldy #oox2 - variables_start         ;
     jsr copy16                          ; OOX2 = OX2
@@ -355,41 +352,43 @@ repeat_loop2
     jsr subtract16                      ;
 
     lda last_row_flag                   ;
-    bmi ++                              ; IF Y%=B%-1:GOTO...
+    bmi after_ifs2                      ; IF Y%=B%-1:GOTO...
 
+    ; IF DELTAX1%=ODELTAX1%
     lda deltax1                         ;
     cmp odeltax1                        ;
-    bne +                               ;
+    bne nextif                          ;
     lda deltax1 + 1                     ;
     cmp odeltax1 + 1                    ;
-    bne +                               ; IF DELTAX1%<>ODELTAX1% THEN GOTO...
+    bne nextif                          ; IF DELTAX1%<>ODELTAX1% THEN GOTO...
 
     ldx #deltax1 - variables_start      ;
     ldy #temp - variables_start         ;
     jsr abs16                           ; temp=ABS(deltax1)
 
     lda temp + 1                        ;
-    bne +                               ;
+    bne nextif                          ;
     lda temp                            ;
     cmp #2                              ;
     bcc next                            ; if temp<2 then GOTO...
 
-+
+nextif
+    ; IF ABS(ODELTAX1%)=1 ...
     ldx #odeltax1 - variables_start     ;
     ldy #temp - variables_start         ;
     jsr abs16                           ; temp=ABS(odeltax1)
     lda temp + 1                        ;
-    bne ++                              ;
+    bne after_ifs2                      ;
     lda temp                            ;
     cmp #1                              ;
-    bne ++                              ; IF temp<>1 GOTO...
+    bne after_ifs2                      ; IF temp<>1 GOTO...
 
-    ; (abs is one)
+    ; AND DELTAX1%=0 ...
     lda deltax1 + 1                     ;
     ora deltax1                         ;
-    bne ++                              ; IF DELTAX1<>0 GOTO...
+    bne after_ifs2                      ; IF DELTAX1<>0 GOTO...
 
-deltax1_is_zero
+    ; AND Y%=OY1%+1 ...
     lda #oy1 - variables_start          ;
     ldx #one - variables_start          ;
     ldy #temp - variables_start         ; temp = oy1 + 1
@@ -397,20 +396,15 @@ deltax1_is_zero
 
     lda y                               ;
     cmp temp                            ;
-    bne ++                              ;
+    bne after_ifs2                      ;
     lda y + 1                           ;
     cmp temp + 1                        ;
-    bne ++                              ; IF Y<>OY1+1 THEN GOTO...
+    bne after_ifs2                      ; IF Y<>OY1+1 THEN GOTO...
 
-    ldx #deltax1 - variables_start      ;
-    ldy #odeltax1 - variables_start     ;
-    jsr copy16                          ; ODELTAX1=DELTAX1
-    ldx #ox1 - variables_start          ;
-    ldy #oox1 - variables_start         ;
-    jsr copy16                          ; OOX1=OX1
-    jmp next                            ; we are building a straight-line segment so don't draw anything for now
+    ; THEN ...
+    jmp post_second_half                ; we are building a straight-line segment so don't draw anything for now
 
-++
+after_ifs2
     lda #ox1 - variables_start          ;
     ldx #oox1 - variables_start         ;
     ldy #tempX - variables_start        ; tempX = OX1-OOX1
@@ -419,12 +413,14 @@ deltax1_is_zero
     jsr sgn16                           ; tempX=SGN(tempX)
 
 
+!if COLOUR = 1 {
     ;GCOL3,col1%:col1%=3-col1%
     LDA col1
     JSR set_col
     LDA col1
     EOR #3
     STA col1
+}
 
     lda #oox1 - variables_start         ;
     ldx #ox1 - variables_start          ;
@@ -435,6 +431,7 @@ deltax1_is_zero
     ldy #oy1 - variables_start          ;
     jsr copy16                          ; OY1%=Y%
 
+post_second_half
     ldx #ox1 - variables_start          ;
     ldy #oox1 - variables_start         ;
     jsr copy16                          ; OOX1 = OX1
@@ -541,9 +538,9 @@ next
     jsr subtract16                      ; temp=Y-B
 
     lda temp                            ;
-    ora temp + 1                        ;
+    and temp + 1                        ;
+    cmp #255                            ;
     bne not_last                        ; if (Y-B)<>-1 GOTO...
-    lda #255                            ;
     sta last_row_flag                   ;
 not_last
     jmp fory_loop                       ; IF (B - Y) > 0 GOTO fory_loop
@@ -567,6 +564,14 @@ do_last_row
     ldy #ym1 - variables_start          ;
     jsr subtract16                      ; ym1 = Y - 1
 
+!if COLOUR = 1 {
+    LDA col2
+    JSR set_col
+    LDA col2
+    EOR #3
+    STA col2
+}
+
     lda #ox2 - variables_start          ;
     ldx #x2 - variables_start           ;
     ldy #ym1 - variables_start          ; MOVE  (OX2%+DX%)*4, (Y-1)*4:DRAW X2%*4, (Y-1)*4
@@ -585,12 +590,25 @@ do_last_row
     ldy #ym1 - variables_start          ;
     jsr subtract16                      ; ym1 = Y - 1
 
+!if COLOUR = 1 {
+    LDA col1
+    JSR set_col
+    LDA col1
+    EOR #3
+    STA col1
+}
+
     lda #ox1 - variables_start          ;
     ldx #x1 - variables_start           ;
     ldy #ym1 - variables_start          ; MOVE  (OX1%+DX%)*4, ym1*4:DRAW X1%*4, (Y-1)*4
     jsr draw_hlines                     ; MOVE -(OX1%+DX%)*4,-ym1*4:DRAW-X1%*4,-(Y-1)*4
 
-    ; plot the final line
+!if COLOUR = 1 {
+    ; finish off cap and tail hlines of ellipse
+    lda #3
+    jsr set_col
+}
+
     ; temp=SGN(X2%-X1%)
     lda #x2 - variables_start           ;
     ldx #x1 - variables_start           ;
@@ -1238,12 +1256,9 @@ add16
 abs16
     lda variables_start + 1,X           ;
     bpl +                               ;
-    eor #255                            ;
-    sta variables_start + 1,Y           ;
-    lda variables_start,X               ;
-    eor #255                            ;
-    sta variables_start,Y               ;
-    rts                                 ;
+    lda #zero - variables_start         ; variable[Y]=zero - variable[X]
+    jmp subtract16                      ;
+
 +
     sta variables_start + 1,Y           ;
     lda variables_start,X               ;
@@ -1257,7 +1272,8 @@ sgn16
     bne positive                        ;
     ora variables_start + 0,X           ;
     bne positive                        ;
-zero
+
+    ; value is zero
     lda #0                              ;
     sta variables_start + 0,X           ;
     sta variables_start + 1,X           ;
@@ -1370,7 +1386,8 @@ a
     !word 58
 b
     !word 100
-    !word 0         ; padding (always zero), used to make multiply32 work on this variable
+zero
+    !word 0         ; padding (always zero), used to make multiply32 work on b
 s
     !le32 -20
 
