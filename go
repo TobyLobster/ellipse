@@ -12,7 +12,7 @@ sort <build/ellipse.tmp | uniq >build/ellipse.sym
 rm build/ellipse.tmp
 
 # Create !BOOT file
-printf "*BASIC\rPAGE=&1900\r*FX21\rCLOSE#0:*RUN ELLIPSE\r" >build/disk/\!BOOT
+printf "*BASIC\rPAGE=&1900\r*FX21\rCLOSE#0:MODE 1:*RUN ELLIPSE\r" >build/disk/\!BOOT
 
 # Create INF file for !BOOT
 myfilesize=$(stat -f %z "build/disk/!BOOT")

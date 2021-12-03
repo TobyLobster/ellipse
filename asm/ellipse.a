@@ -131,7 +131,7 @@ draw_ellipse
     ldx #odeltax1 - variables_start     ;
     jsr set_variable16_to_a             ; ODELTAX1 = 0
 
-    lda #1                              ;
+    lda #0                              ;
     ldx #odeltax2 - variables_start     ;
     jsr set_variable16_to_a             ; ODELTAX2 = 0
 
@@ -177,7 +177,7 @@ repeat_loop1
     ora t2 + 2                          ;
     ora t2 + 1                          ;
     ora t2 + 0                          ;
-    beq ++                              ; IF T2=0 THEN GOTO ...
+    beq postloop1                       ; IF T2=0 THEN GOTO ...
 
     lda #tt2 - variables_start          ;
     ldx #dd - variables_start           ;
@@ -205,11 +205,11 @@ repeat_loop1
     jsr add32                           ; temp = BD+D1
 
     lda temp+3                          ;
-    bpl ++                              ;
+    bpl postloop1                       ;
     jmp inc_x2_t2                       ; IF temp<0 THEN GOTO ...
 
-++
-    ; IF DELTAX1%=ODELTAX1% AND Y%<B%-1:GOTO%%incforloop%%:REM we are building a straight-line segment so don't draw anything for now
+    ; postloop1
+postloop1
     lda #x2 - variables_start           ;
     ldx #ox2 - variables_start          ;
     ldy #deltax2 - variables_start      ; DELTAX2 = X2-OX2
@@ -236,25 +236,25 @@ repeat_loop1
     bcc repeat_loop2                    ; if temp<2 then GOTO...
 
 +
-    ; IF ABS(ODELTAX2%)=1 AND DELTAX2%=0 AND Y%<B%-1 AND Y%=OY2%+1 ODELTAX2%=DELTAX2%:OOX2%=OX2%:GOTO%%reploop2%%
+    ; IF ABS(ODELTAX2%)=1 ...
     ldx #odeltax2 - variables_start     ;
     ldy #temp - variables_start         ;
     jsr abs16                           ; temp=ABS(odeltax2)
     lda temp + 1                        ;
     bne ++                              ;
     lda temp                            ;
-    cmp #2                              ;
-    bcs ++                              ; IF temp>=2 GOTO...
+    cmp #1                              ;
+    bne ++                              ; IF temp<>1 GOTO...
 
-abs_is_one
+    ; ... AND DELTAX2%=0
     lda deltax2 + 1                     ;
     ora deltax2                         ;
     bne ++                              ; IF DELTAX2<>0 GOTO...
 
-deltax2_is_zero
-    lda #oy1 - variables_start          ;
+    ; ... AND Y%=OY2%+1
+    lda #oy2 - variables_start          ;
     ldx #one - variables_start          ;
-    ldy #temp - variables_start         ; temp = oy1 + 1
+    ldy #temp - variables_start         ; temp = OY2 + 1
     jsr add16                           ;
 
     lda y                               ;
@@ -267,11 +267,14 @@ deltax2_is_zero
     ldx #deltax2 - variables_start      ;
     ldy #odeltax2 - variables_start     ;
     jsr copy16                          ; ODELTAX2=DELTAX2
+
     ldx #ox2 - variables_start          ;
     ldy #oox2 - variables_start         ;
     jsr copy16                          ; OOX2=OX2
-    jmp repeat_loop2                    ; we are building a straight-line segment so don't draw anything for now
 
+    jmp repeat_loop2                    ; GOTO%%reploop2%% : REM fix for consecutive vlines
+
+    ; after_ifs1
 ++
     lda #ox2 - variables_start          ;
     ldx #oox2 - variables_start         ;
@@ -279,6 +282,14 @@ deltax2_is_zero
     jsr subtract16                      ;
     ldx #tempX - variables_start        ;
     jsr sgn16                           ; temp=SGN(temp)
+
+
+    ;GCOL3,col2%:col2%=3-col2%
+    LDA col2
+    JSR set_col
+    LDA col2
+    EOR #3
+    STA col2
 
     lda #oox2 - variables_start         ;
     ldx #ox2 - variables_start          ;
@@ -370,10 +381,10 @@ repeat_loop2
     lda temp + 1                        ;
     bne ++                              ;
     lda temp                            ;
-    cmp #2                              ;
-    bcs ++                              ; IF temp>=2 GOTO...
+    cmp #1                              ;
+    bne ++                              ; IF temp<>1 GOTO...
 
-abs_is_one_2
+    ; (abs is one)
     lda deltax1 + 1                     ;
     ora deltax1                         ;
     bne ++                              ; IF DELTAX1<>0 GOTO...
@@ -406,6 +417,14 @@ deltax1_is_zero
     jsr subtract16                      ;
     ldx #tempX - variables_start        ;
     jsr sgn16                           ; tempX=SGN(tempX)
+
+
+    ;GCOL3,col1%:col1%=3-col1%
+    LDA col1
+    JSR set_col
+    LDA col1
+    EOR #3
+    STA col1
 
     lda #oox1 - variables_start         ;
     ldx #ox1 - variables_start          ;
@@ -670,27 +689,27 @@ dec_x2_t2
 
     lda #tt2 - variables_start          ;
     ldx #bt2 - variables_start          ;
-    ldy #tt2 - variables_start          ;
+    tay                                 ;
     jsr subtract32                      ; TT2-=BT2
 
     lda #tt2 - variables_start          ;
     ldx #bt2 - variables_start          ;
-    ldy #tt2 - variables_start          ;
+    tay                                 ;
     jsr subtract32                      ; TT2-=BT2 (again)
 
     lda #tt2 - variables_start          ;
     ldx #bb - variables_start           ;
-    ldy #tt2 - variables_start          ;
+    tay                                 ;
     jsr add32                           ; TT2+=BB
 
     lda #bt2 - variables_start          ;
     ldx #bb - variables_start           ;
-    ldy #bt2 - variables_start          ;
+    tay                                 ;
     jsr subtract32                      ; BT2-=BB
 
     lda #st2 - variables_start          ;
     ldx #sb - variables_start           ;
-    ldy #st2 - variables_start          ;
+    tay                                 ;
     jsr subtract32                      ; ST2-=SB
 
     jmp repeat_loop1                    ;
@@ -833,18 +852,18 @@ negate_coordinates
 ; DRAW variable[xvar_index]*4,(y-1)*4
 draw_line
     ; IF tempX == ox2 then plot 69
-    ldx xvar_index                      ;
-    lda tempX                           ;
-    cmp variables_start,X               ;
-    bne +                               ;
+;    ldx xvar_index                      ;
+;    lda tempX                           ;
+;    cmp variables_start,X               ;
+;    bne +                               ;
 
-    lda tempX + 1                       ;
-    cmp variables_start + 1,X           ;
-    bne +                               ;
+;    lda tempX + 1                       ;
+;    cmp variables_start + 1,X           ;
+;    bne +                               ;
 
-    lda #69                             ; PLOT 69 for plotting a point
-    bne ++                              ; ALWAYS branch
-+
+;    lda #69                             ; PLOT 69 for plotting a point
+;    bne ++                              ; ALWAYS branch
+;+
 
     lda #4                              ;
     sta plot_type                       ;
@@ -870,9 +889,21 @@ set_mode
     bne -                               ;
     rts                                 ;
 
+; ***************************************************************************************
 mode_change
     !byte 22,1
 mode_change_end
+
+; ***************************************************************************************
+set_col
+    tax                                 ;
+    lda #18                             ;
+    jsr OSWRCH                          ;
+    lda #3                              ; GCOL 3,A
+    jsr OSWRCH                          ;
+    txa                                 ;
+    jmp OSWRCH                          ;
+
 
 ; ***************************************************************************************
 ;
@@ -1211,12 +1242,12 @@ abs16
     sta variables_start + 1,Y           ;
     lda variables_start,X               ;
     eor #255                            ;
-    lda variables_start,Y               ;
+    sta variables_start,Y               ;
     rts                                 ;
 +
     sta variables_start + 1,Y           ;
     lda variables_start,X               ;
-    lda variables_start,Y               ;
+    sta variables_start,Y               ;
     rts                                 ;
 
 ; ***************************************************************************************
