@@ -376,8 +376,24 @@ for i in range(0,2):
 #    print(vars(subTree))
 
 # Initialise array indexes
+nodeArray = []
+queue = []
 for subTree in subTrees:
-    subTree.root.arrayIndex = 0
+    # Set array index of each node (in breadth first search order)
+    queue.append(subTree.root)
+
+i = 0
+while queue:
+    node = queue[0]
+    queue = queue[1:]
+    nodeArray.append(node)
+    node.arrayIndex = i
+    i += 1
+    for c in node.children:
+        if c:
+            queue.append(c)
+
+
 
 # Output tree
 with open('build/line_data.dot', 'w') as dotFile:
@@ -454,10 +470,13 @@ threeSubTrees = subTrees[0:3]
 # Set array index of each node (in breadth first search order)
 nodeArray = []
 queue = [threeSubTrees[0].root, threeSubTrees[1].root, threeSubTrees[2].root]
+i = 0
 while queue:
     node = queue[0]
     queue = queue[1:]
     nodeArray.append(node)
+    node.arrayIndex = i
+    i += 1
     for c in node.children:
         if c:
             queue.append(c)
