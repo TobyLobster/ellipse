@@ -68,7 +68,7 @@ The root is a special case as is has eight children, which is reduced to three d
 Different operating systems can render straight lines in slightly different ways. This will affect the data produced. So the data is to some degree OS specific when relying on an OS specific line drawing routine.
 
 ### Future Development ###
-This technique is not just useful for ellipses, but can be used with any shape that's drawn using adjacent pixels.
+This technique is not just useful for ellipses (or circles for that matter as a circle can be considered to be a special type of ellipse), but can be used with any shape that's drawn using adjacent pixels.
 
 #### Optimisations
 Large or squashed ellipses can have long sections of purely vertical or horizontal lines. At the moment these lines are encoded into multiple lines of length 7. It is possible to adjust the tree data so that e.g. the child of node along a vertical line can point to it's parent. This turns our tree into a graph that can encode vertical and horizontal lines of any length. Similarly for diagonal (45 degree) lines and perhaps some other regular lines too.
