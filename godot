@@ -1,0 +1,5 @@
+set -e
+
+python3 asm/create_table.py
+dot -Tpng build/line_data.dot >line_data.png
+#open line_data.png

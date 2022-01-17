@@ -1,5 +1,4 @@
 OSWRCH = $FFEE
-COLOUR = 0
 
 xvar_index   = $70
 yvar_index   = $71
@@ -13,19 +12,22 @@ product_index       = $83
 param1_index        = $84
 multiplicand_index  = $84
 multiplier_index    = $85
-last_row_flag       = $86
-!if COLOUR = 1 {
-col1                = $87
-col2                = $88
-}
+depth               = $87
+quadrant            = $88
+tempx               = $89
+tempxHigh           = $8a
+tempy               = $8b
+tempyHigh           = $8c
+dir                 = $8d
 
-* = $1900
+* = $2400
 
 ; ***************************************************************************************
 main
-;    jsr set_mode                        ;
-
 draw_ellipse
+    lda #0                              ;
+    sta depth                           ;
+
     lda #a - variables_start            ;
     ldx #a - variables_start            ;
     ldy #aa - variables_start           ;
@@ -49,6 +51,11 @@ draw_ellipse
     ldy #yyaa_diff - variables_start    ;
     jsr copy32                          ; YYAA_DIFF = AA
 
+    lda #0                              ;
+    sta state                           ;
+    sta state + 1                       ; reset state of each quadrant
+    sta state + 2                       ;
+    sta state + 3                       ;
 
     ldx #a - variables_start            ;
     ldy #x1 - variables_start           ;
@@ -94,10 +101,6 @@ draw_ellipse
     ldy #st2 - variables_start          ;
     jsr negate32                        ; ST2=-ST1
 
-    lda #0                              ;
-    ldx #ys - variables_start           ;
-    jsr set_variable32_to_a             ; YS = 0
-
     ldx #bb - variables_start           ;
     ldy #bb2 - variables_start          ;
     jsr div2_32                         ; BB2 = BB/2
@@ -113,51 +116,44 @@ draw_ellipse
     jsr multiply32                      ; SS = S*S
 
     lda #0                              ;
-    ldx #oy1 - variables_start          ;
-    jsr set_variable16_to_a             ; OY1 = 0
-
-    lda #0                              ;
-    ldx #oy2 - variables_start          ;
-    jsr set_variable16_to_a             ; OY2 = 0
-
-    ldx #x1 - variables_start           ;
-    ldy #oox1 - variables_start         ;
-    jsr copy16                          ; OOX1 = X1
-
-    ldx #x2 - variables_start           ;
-    ldy #oox2 - variables_start         ;
-    jsr copy16                          ; OOX2 = X2
-
-    lda #0                              ;
-    ldx #odeltax1 - variables_start     ;
-    jsr set_variable16_to_a             ; ODELTAX1 = 0
-
-    lda #0                              ;
-    ldx #odeltax2 - variables_start     ;
-    jsr set_variable16_to_a             ; ODELTAX2 = 0
-
-!if COLOUR = 1 {
-    lda #1                              ;
-    sta col1                            ;
-    lda #2                              ;
-    sta col2                            ;
-}
-
-    ldx #0                              ;
-    lda b                               ;
-    cmp #1                              ;
-    bne +                               ;
-    lda b+1                             ;
-    bne +                               ;
-    ldx #255                            ;
-+
-    stx last_row_flag                   ;
-
-    lda #0                              ;
     ldx #y - variables_start            ;
     jsr set_variable16_to_a             ; Y = 0
 
 fory_loop
+    ; first add_point
+    lda #x1 - variables_start           ;
+    ldx #ox1 - variables_start          ;
+    ldy #increment - variables_start    ;
+    jsr subtract16                      ; increment=X1-OX1
+
+    ldx #increment - variables_start    ;
+    jsr sgn16                           ; increment=SGN(increment)
+
+    lda increment                       ;
+    clc                                 ;
+    adc #7                              ; A = 7 + sgn(x1-ox1)      (i.e. the direction)
+    ldx #0                              ; X is the quadrant to use
+    ldy #x1 - variables_start           ; Y is the x coordinate to use
+    jsr add_point                       ;
+
+
+    ; second add_point
+    lda #x2 - variables_start           ;
+    ldx #ox2 - variables_start          ;
+    ldy #increment - variables_start    ;
+    jsr subtract16                      ; increment=X2-OX2
+
+    ldx #increment - variables_start    ;
+    jsr sgn16                           ; increment=SGN(increment)
+
+    lda increment                       ;
+    clc                                 ;
+    adc #7                              ; A = 7 + sgn(x2-ox2)      (i.e. the direction)
+    ldx #1                              ; X is the quadrant to use
+    ldy #x2 - variables_start           ; Y is the x coordinate to use
+    jsr add_point                       ;
+
+
     ldx #x1 - variables_start           ;
     ldy #ox1 - variables_start          ;
     jsr copy16                          ; OX1 = X1
@@ -171,7 +167,7 @@ fory_loop
     ldy #dd - variables_start           ; DD=AABB-YYAA
     jsr subtract32                      ;
 
-    ; first half!
+    ; right half
 repeat_loop1
     lda t2 + 3                          ;
     bpl +                               ;
@@ -180,7 +176,7 @@ repeat_loop1
     ora t2 + 2                          ;
     ora t2 + 1                          ;
     ora t2 + 0                          ;
-    beq postloop1                       ; IF T2=0 THEN GOTO ...
+    beq post_loop1                      ; IF T2=0 THEN GOTO ...
 
     lda #tt2 - variables_start          ;
     ldx #dd - variables_start           ;
@@ -208,118 +204,64 @@ repeat_loop1
     jsr add32                           ; temp = BD+D1
 
     lda temp+3                          ;
-    bpl postloop1                       ;
+    bpl post_loop1                       ;
     jmp inc_x2_t2                       ; IF temp<0 THEN GOTO ...
 
-    ; postloop1
-postloop1
+post_loop1
     lda #x2 - variables_start           ;
     ldx #ox2 - variables_start          ;
-    ldy #deltax2 - variables_start      ; DELTAX2 = X2-OX2
-    jsr subtract16                      ;
+    ldy #increment - variables_start    ;
+    jsr subtract16                      ; increment=X2-OX2
 
-    lda last_row_flag                   ;
-    bmi after_ifs1                      ; IF Y%=B%-1:GOTO...
+    ldx #increment - variables_start    ;
+    jsr sgn16                           ; increment=SGN(increment)
 
-    lda deltax2                         ;
-    cmp odeltax2                        ;
+    lda #ox2 - variables_start          ;
+    ldx #increment - variables_start    ;
+    ldy #x - variables_start            ;
+    jsr add16                           ; x = ox2 + increment
+
+    ; loop to add points in a horizontal line
+-
+    lda x2                              ;
+    cmp x                               ;
     bne +                               ;
-    lda deltax2 + 1                     ;
-    cmp odeltax2 + 1                    ;
-    bne +                               ; IF DELTAX2%<>ODELTAX2% THEN GOTO...
-
-    ldx #deltax2 - variables_start      ;
-    ldy #temp - variables_start         ;
-    jsr abs16                           ; temp=ABS(deltax2)
-
-    lda temp + 1                        ;
-    bne +                               ;
-    lda temp                            ;
-    cmp #2                              ;
-    bcc repeat_loop2                    ; if temp<2 then GOTO...
+    lda x2 + 1                          ;
+    cmp x + 1                           ;
+    beq done_first_half                 ; if (x == x2) then goto done1
 
 +
-    ; IF ABS(ODELTAX2%)=1 ...
-    ldx #odeltax2 - variables_start     ;
-    ldy #temp - variables_start         ;
-    jsr abs16                           ; temp=ABS(odeltax2)
-    lda temp + 1                        ;
-    bne after_ifs1                      ;
-    lda temp                            ;
-    cmp #1                              ;
-    bne after_ifs1                      ; IF temp<>1 GOTO...
+    lda #4                              ;
+    clc                                 ;
+    adc increment                       ; A = 4 + increment       (i.e. the direction)
+    ldx #1                              ; X is the quadrant to use
+    ldy #x - variables_start            ; Y is the x coordinate to use
+    jsr add_point                       ;
 
-    ; ... AND DELTAX2%=0
-    lda deltax2 + 1                     ;
-    ora deltax2                         ;
-    bne after_ifs1                      ; IF DELTAX2<>0 GOTO...
+    lda #x - variables_start            ;
+    ldx #increment - variables_start    ;
+    ldy #x - variables_start            ;
+    jsr add16                           ; x = x + increment
 
-    ; ... AND Y%=OY2%+1
-    lda #oy2 - variables_start          ;
-    ldx #one - variables_start          ;
-    ldy #temp - variables_start         ; temp = OY2 + 1
-    jsr add16                           ;
+    jmp -                               ;
 
-    lda y                               ;
-    cmp temp                            ;
-    bne after_ifs1                      ;
-    lda y + 1                           ;
-    cmp temp + 1                        ;
-    bne after_ifs1                      ; IF Y<>OY1+1 THEN GOTO...
+done_first_half
 
-    jmp post_first_half                 ; GOTO%%post_first_half%% : REM fix for consecutive vlines
-
-after_ifs1
-    lda #ox2 - variables_start          ;
-    ldx #oox2 - variables_start         ;
-    ldy #tempX - variables_start        ; tempX = OX2-OOX2
-    jsr subtract16                      ;
-    ldx #tempX - variables_start        ;
-    jsr sgn16                           ; temp=SGN(temp)
-
-
-!if COLOUR = 1 {
-    ;GCOL3,col2%:col2%=3-col2%
-    LDA col2
-    JSR set_col
-    LDA col2
-    EOR #3
-    STA col2
-}
-
-    lda #oox2 - variables_start         ;
-    ldx #ox2 - variables_start          ;
-    ldy #oy2 - variables_start          ;
-    jsr draw_hlines                     ;
-
-    ldx #y - variables_start            ;
-    ldy #oy2 - variables_start          ;
-    jsr copy16                          ; OY2%=Y%
-
-post_first_half
-    ldx #ox2 - variables_start          ;
-    ldy #oox2 - variables_start         ;
-    jsr copy16                          ; OOX2 = OX2
-
-    ldx #deltax2 - variables_start      ;
-    ldy #odeltax2 - variables_start     ;
-    jsr copy16                          ; ODELTAX2 = DELTAX2
-
-    ; second half!
+    ; left half
 repeat_loop2
     lda t1 + 3                          ;
     bmi ++                              ;
     ora t1 + 2                          ;
     ora t1 + 1                          ;
     ora t1 + 0                          ;
-    beq +                               ; IF T=0 THEN GOTO ...
+    beq post_loop2                      ; IF T=0 THEN GOTO ...
     jmp dec_x1_t1                       ; IF T>0 THEN GOTO ...
 ++
 
     lda #tt1 - variables_start          ;
     ldx #dd - variables_start           ;
     ldy #d1 - variables_start           ;
-    jsr subtract32                      ; D1=TT-DD
+    jsr subtract32                      ; D1=TT1-DD
 
     lda #bb2 - variables_start          ;
     ldx #bt1 - variables_start          ;
@@ -342,110 +284,48 @@ repeat_loop2
     jsr add32                           ; temp = BD+D1
 
     lda temp+3                          ;
-    bpl ++                              ;
+    bpl post_loop2                      ;
     jmp dec_x1_t1                       ;
-++
-+
+
+post_loop2
     lda #x1 - variables_start           ;
     ldx #ox1 - variables_start          ;
-    ldy #deltax1 - variables_start      ; DELTAX1 = X1-OX1
-    jsr subtract16                      ;
+    ldy #increment - variables_start    ;
+    jsr subtract16                      ; increment=X1-OX1
 
-    lda last_row_flag                   ;
-    bmi after_ifs2                      ; IF Y%=B%-1:GOTO...
+    ldx #increment - variables_start    ;
+    jsr sgn16                           ; increment=SGN(increment)
 
-    ; IF DELTAX1%=ODELTAX1%
-    lda deltax1                         ;
-    cmp odeltax1                        ;
-    bne nextif                          ;
-    lda deltax1 + 1                     ;
-    cmp odeltax1 + 1                    ;
-    bne nextif                          ; IF DELTAX1%<>ODELTAX1% THEN GOTO...
-
-    ldx #deltax1 - variables_start      ;
-    ldy #temp - variables_start         ;
-    jsr abs16                           ; temp=ABS(deltax1)
-
-    lda temp + 1                        ;
-    bne nextif                          ;
-    lda temp                            ;
-    cmp #2                              ;
-    bcc next                            ; if temp<2 then GOTO...
-
-nextif
-    ; IF ABS(ODELTAX1%)=1 ...
-    ldx #odeltax1 - variables_start     ;
-    ldy #temp - variables_start         ;
-    jsr abs16                           ; temp=ABS(odeltax1)
-    lda temp + 1                        ;
-    bne after_ifs2                      ;
-    lda temp                            ;
-    cmp #1                              ;
-    bne after_ifs2                      ; IF temp<>1 GOTO...
-
-    ; AND DELTAX1%=0 ...
-    lda deltax1 + 1                     ;
-    ora deltax1                         ;
-    bne after_ifs2                      ; IF DELTAX1<>0 GOTO...
-
-    ; AND Y%=OY1%+1 ...
-    lda #oy1 - variables_start          ;
-    ldx #one - variables_start          ;
-    ldy #temp - variables_start         ; temp = oy1 + 1
-    jsr add16                           ;
-
-    lda y                               ;
-    cmp temp                            ;
-    bne after_ifs2                      ;
-    lda y + 1                           ;
-    cmp temp + 1                        ;
-    bne after_ifs2                      ; IF Y<>OY1+1 THEN GOTO...
-
-    ; THEN ...
-    jmp post_second_half                ; we are building a straight-line segment so don't draw anything for now
-
-after_ifs2
     lda #ox1 - variables_start          ;
-    ldx #oox1 - variables_start         ;
-    ldy #tempX - variables_start        ; tempX = OX1-OOX1
-    jsr subtract16                      ;
-    ldx #tempX - variables_start        ;
-    jsr sgn16                           ; tempX=SGN(tempX)
+    ldx #increment - variables_start    ;
+    ldy #x - variables_start            ;
+    jsr add16                           ; x = ox1 + increment
 
+    ; loop to add points in a horizontal line
+-
+    lda x1                              ;
+    cmp x                               ;
+    bne +                               ;
+    lda x1 + 1                          ;
+    cmp x + 1                           ;
+    beq done_row                        ; if (x == x1) then goto done2
 
-!if COLOUR = 1 {
-    ;GCOL3,col1%:col1%=3-col1%
-    LDA col1
-    JSR set_col
-    LDA col1
-    EOR #3
-    STA col1
-}
-
-    lda #oox1 - variables_start         ;
-    ldx #ox1 - variables_start          ;
-    ldy #oy1 - variables_start          ;
-    jsr draw_hlines                     ;
-
-    ldx #y - variables_start            ;
-    ldy #oy1 - variables_start          ;
-    jsr copy16                          ; OY1%=Y%
-
-post_second_half
-    ldx #ox1 - variables_start          ;
-    ldy #oox1 - variables_start         ;
-    jsr copy16                          ; OOX1 = OX1
-
-    ldx #deltax1 - variables_start      ;
-    ldy #odeltax1 - variables_start     ;
-    jsr copy16                          ; ODELTAX1 = DELTAX1
-
-next
-    lda last_row_flag                   ;
-    beq +                               ;
-    jmp do_last_row                     ; if (last row) THEN GOTO...
 +
+    lda #4                              ;
+    clc                                 ;
+    adc increment                       ; A = 4 + increment       (i.e. the direction)
+    ldx #0                              ; X is the quadrant to use
+    ldy #x - variables_start            ; Y is the x coordinate to use
+    jsr add_point                       ;
 
+    lda #x - variables_start            ;
+    ldx #increment - variables_start    ;
+    ldy #x - variables_start            ;
+    jsr add16                           ; x = x + increment
+
+    jmp -                               ;
+
+done_row
     ldx #st2 - variables_start          ;
     ldy #tt2 - variables_start          ;
     jsr decrement32                     ; TT2-=ST2
@@ -469,10 +349,6 @@ next
     ldx #ss - variables_start           ;
     ldy #tt1 - variables_start          ;
     jsr increment32                     ; TT1+=SS
-
-    ldx #s - variables_start            ;
-    ldy #ys - variables_start           ;
-    jsr increment32                     ; YS+=S
 
     ldx #ss - variables_start           ;
     ldy #st2 - variables_start          ;
@@ -515,102 +391,29 @@ next
     inc y+1                             ; Y+=1
 +
 
-    lda #y - variables_start            ;
-    ldx #b - variables_start            ;
-    ldy #temp - variables_start         ;
-    jsr subtract16                      ; temp=Y-B
-
-    lda temp                            ;
-    and temp + 1                        ;
-    cmp #255                            ;
-    bne not_last                        ; if (Y-B)<>-1 GOTO...
-    sta last_row_flag                   ;
-not_last
-    jmp fory_loop                       ; IF (B - Y) > 0 GOTO fory_loop
+    lda y                               ;
+    cmp b                               ;
+    bne +                               ;
+    lda y+1                             ;
+    cmp b+1                             ;
+    beq do_last_row                     ;
++
+    jmp fory_loop                       ; IF B != Y GOTO fory_loop
 
 do_last_row
-    inc y                               ;
-    bne +                               ;
-    inc y+1                             ; Y+=1
-+
 
-    ; finish off old line segments:
-    lda #x2 - variables_start           ;
-    ldx #ox2 - variables_start          ;
-    ldy #tempX - variables_start        ; tempX = X2-OX2
-    jsr subtract16                      ;
-    ldx #tempX - variables_start        ;
-    jsr sgn16                           ; tempX = SGN(tempX)
+    ; plot any pending un-plotted pixels in each quadrant before drawing the final top and bottom horizontal lines
+    lda #0                              ;
+    sta quadrant                        ;
+-
+    jsr finish_off                      ;
+    inc quadrant                        ;
+    lda quadrant                        ;
+    cmp #4                              ;
+    bcc -                               ;
 
-    lda #y - variables_start            ;
-    ldx #one - variables_start          ;
-    ldy #ym1 - variables_start          ;
-    jsr subtract16                      ; ym1 = Y - 1
-
-!if COLOUR = 1 {
-    LDA col2
-    JSR set_col
-    LDA col2
-    EOR #3
-    STA col2
-}
-
-    lda #ox2 - variables_start          ;
-    ldx #x2 - variables_start           ;
-    ldy #ym1 - variables_start          ; MOVE  (OX2%+DX%)*4, (Y-1)*4:DRAW X2%*4, (Y-1)*4
-    jsr draw_hlines                     ; MOVE -(OX2%+DX%)*4,-(Y-1)*4:DRAW-X2%*4,-(Y-1)*4
-
-
-    lda #x1 - variables_start           ;
-    ldx #ox1 - variables_start          ;
-    ldy #tempX - variables_start        ; tempX = X1-OX1
-    jsr subtract16                      ;
-    ldx #tempX - variables_start        ;
-    jsr sgn16                           ; tempX = SGN(tempX)
-
-    lda #y - variables_start            ;
-    ldx #one - variables_start          ;
-    ldy #ym1 - variables_start          ;
-    jsr subtract16                      ; ym1 = Y - 1
-
-!if COLOUR = 1 {
-    LDA col1
-    JSR set_col
-    LDA col1
-    EOR #3
-    STA col1
-}
-
-    lda #ox1 - variables_start          ;
-    ldx #x1 - variables_start           ;
-    ldy #ym1 - variables_start          ; MOVE  (OX1%+DX%)*4, ym1*4:DRAW X1%*4, (Y-1)*4
-    jsr draw_hlines                     ; MOVE -(OX1%+DX%)*4,-ym1*4:DRAW-X1%*4,-(Y-1)*4
-
-!if COLOUR = 1 {
-    ; finish off cap and tail hlines of ellipse
-    lda #3
-    jsr set_col
-}
-
-    ; temp=SGN(X2%-X1%)
-    lda #x2 - variables_start           ;
-    ldx #x1 - variables_start           ;
-    ldy #tempX - variables_start        ; tempX = X2-X1
-    jsr subtract16                      ;
-    ldx #tempX - variables_start        ;
-    jsr sgn16                           ; tempX=SGN(tempX)
-
-    lda #x1 - variables_start           ;
-    ldx #tempX - variables_start        ;
-    ldy #x1 - variables_start           ;
-    jsr add16                           ; X1 += tempX
-
-    lda #x2 - variables_start           ;
-    ldx #tempX - variables_start        ;
-    ldy #x2 - variables_start           ;
-    jsr subtract16                      ; X2 -= tempX
-
-    jsr draw_hline2                     ; draw lines:B=-B
+    ; draw final top line
+    jsr draw_hline                      ; draw lines:B=-B
 
     ldx #x1 - variables_start           ;
     ldy #x1 - variables_start           ;
@@ -620,7 +423,8 @@ do_last_row
     ldy #x2 - variables_start           ;
     jsr negate16                        ; X2 = -X2
 
-draw_hline2
+    ; draw final bottom line
+draw_hline
     lda #4                              ;
     sta plot_type                       ;
     ldx #x1 - variables_start           ;
@@ -770,119 +574,6 @@ dec_x1_t1
     jmp repeat_loop2                    ;
 
 ; ***************************************************************************************
-; convert 16 bit signed value into 32 bit signed value (sign extension)
-;extend32
-;    lda #0                              ;
-;    ldx variables_start + 1,Y           ;
-;    bpl +                               ;
-;    lda #255                            ;
-;+
-;    sta variables_start + 2,Y           ;
-;    sta variables_start + 3,Y           ;
-;    rts                                 ;
-
-; ***************************************************************************************
-; MOVE  (A+tempX)*4, Y*4:DRAW  X*4, (Y%-1)*4
-; MOVE -(A+tempX)*4,-Y*4:DRAW -X*4,-(Y%-1)*4
-; On Entry:
-;   A is index for OOX1 or OOX2
-;   X is index for OX1 or OX2
-;   Y is index for OX2 or OY2
-;   tempX is DX
-draw_hlines
-    stx xvar_index                      ; index for OX1 or OX2, lets say OX2 for these comments
-    sty yvar_index                      ; index for OY1 or OY2, lets say OY2 for these comments
-    ldx #tempX - variables_start        ;
-    ldy #tempX - variables_start        ;
-    jsr add16                           ; tempX+=A (adds either OOX1 or OOX2)
-
-    lda #y - variables_start            ;
-    ldx #one - variables_start          ;
-    ldy #tempY - variables_start        ;
-    jsr subtract16                      ; tempY=Y-1
-
-    jsr draw_line                       ;
-
-    ldx #tempX - variables_start        ;
-    ldy #tempX - variables_start        ;
-    jsr negate16                        ; tempX=-tempX
-
-    jsr negate_coordinates              ;
-
-    jsr draw_line                       ;
-
-negate_coordinates
-    ldx xvar_index                      ;
-    ldy xvar_index                      ;
-    jsr negate16                        ; X2 = -X2
-
-    ldx yvar_index                      ;
-    ldy yvar_index                      ;
-    jsr negate16                        ; X2 = -X2
-
-    ldx #tempY - variables_start        ;
-    ldy #tempY - variables_start        ;
-    jmp negate16                        ; tempY = -tempY
-
-; ***************************************************************************************
-; MOVE tempX*4,variable[yvar_index]*4
-; DRAW variable[xvar_index]*4,(y-1)*4
-draw_line
-    ; IF tempX == ox2 then plot 69
-;    ldx xvar_index                      ;
-;    lda tempX                           ;
-;    cmp variables_start,X               ;
-;    bne +                               ;
-
-;    lda tempX + 1                       ;
-;    cmp variables_start + 1,X           ;
-;    bne +                               ;
-
-;    lda #69                             ; PLOT 69 for plotting a point
-;    bne ++                              ; ALWAYS branch
-;+
-
-    lda #4                              ;
-    sta plot_type                       ;
-    ldx #tempX - variables_start        ;
-    ldy yvar_index                      ;
-    jsr plot_xy                         ; MOVE  tempX*4, Y*4
-    lda #5                              ;
-++
-    sta plot_type                       ;
-
-    ldx xvar_index                      ;
-    ldy #tempY - variables_start        ;
-    jmp plot_xy                         ; DRAW  X2*4, tempY*4
-
-; ***************************************************************************************
-set_mode
-    ldx #0                              ;
--
-    lda mode_change,X                   ;
-    jsr OSWRCH                          ;
-    inx                                 ;
-    cpx #mode_change_end - mode_change  ;
-    bne -                               ;
-    rts                                 ;
-
-; ***************************************************************************************
-mode_change
-    !byte 22,1
-mode_change_end
-
-; ***************************************************************************************
-set_col
-    tax                                 ;
-    lda #18                             ;
-    jsr OSWRCH                          ;
-    lda #3                              ; GCOL 3,A
-    jsr OSWRCH                          ;
-    txa                                 ;
-    jmp OSWRCH                          ;
-
-
-; ***************************************************************************************
 ;
 ; Y = A * X
 ;
@@ -980,6 +671,7 @@ plot_xy
     lda variables_start + 1,X           ;
     adc centrex + 1                     ;
     sta plot_block + 2                  ;
+
     lda variables_start,Y               ;
     clc                                 ;
     adc centrey                         ;
@@ -988,6 +680,65 @@ plot_xy
     adc centrey + 1                     ;
     sta plot_block + 0                  ;
 
+    jmp mult_by_four_and_plot           ;
+
+; ***************************************************************************************
+;
+; MOVE cx + lastMoveX, cy + lastMoveX
+; DRAW cx + lastBlueX, cy + lastBlueY
+;
+; On Entry:
+;   X = quadrant
+;
+; ***************************************************************************************
+draw_line
+    lda #4                              ; MOVE
+    sta plot_type                       ;
+
+    lda lastMoveXLow,x                  ;
+    clc                                 ;
+    adc centrex                         ;
+    sta plot_block + 3                  ;
+
+    lda lastMoveXHigh,x                 ;
+    adc centrex + 1                     ;
+    sta plot_block + 2                  ;
+
+    lda lastMoveYLow,x                  ;
+    clc                                 ;
+    adc centrey                         ;
+    sta plot_block + 1                  ;
+
+    lda lastMoveYHigh,x                 ;
+    adc centrey + 1                     ;
+    sta plot_block + 0                  ;
+
+    jsr mult_by_four_and_plot           ;
+
+
+    lda #5                              ; DRAW
+    sta plot_type                       ;
+
+    ldx quadrant                        ;
+    lda lastBlueXLow,x                  ;
+    clc                                 ;
+    adc centrex                         ;
+    sta plot_block + 3                  ;
+
+    lda lastBlueXHigh,x                 ;
+    adc centrex + 1                     ;
+    sta plot_block + 2                  ;
+
+    lda lastBlueYLow,x                  ;
+    clc                                 ;
+    adc centrey                         ;
+    sta plot_block + 1                  ;
+
+    lda lastBlueYHigh,x                 ;
+    adc centrey + 1                     ;
+    sta plot_block + 0                  ;
+
+mult_by_four_and_plot
     asl plot_block + 1                  ;
     rol plot_block                      ;
     asl plot_block + 1                  ;
@@ -1004,6 +755,31 @@ plot_xy
     dex                                 ;
     bpl -                               ;
     rts                                 ;
+
+; ***************************************************************************************
+plot_point
+    lda #69                             ; PLOT 69 (point)
+    sta plot_type                       ;
+
+    lda pixelx                          ;
+    clc                                 ;
+    adc centrex                         ;
+    sta plot_block + 3                  ;
+
+    lda pixelx + 1                      ;
+    adc centrex + 1                     ;
+    sta plot_block + 2                  ;
+
+    lda pixely                          ;
+    clc                                 ;
+    adc centrey                         ;
+    sta plot_block + 1                  ;
+
+    lda pixely + 1                      ;
+    adc centrey + 1                     ;
+    sta plot_block + 0                  ;
+
+    jmp mult_by_four_and_plot           ;
 
 ; ***************************************************************************************
 copy4_to_zp
@@ -1379,10 +1155,393 @@ multiply16
     dex                                 ;
     dey                                 ;
     bpl -                               ;
+return1
     rts                                 ;
 
-variables_start
 ; ***************************************************************************************
+;
+; add_point
+;
+; On Entry:
+;    A      = current direction ('dir')
+;    X      = quadrant
+;    Y      = X variable to add
+;
+; ***************************************************************************************
+add_point
+    sta dir                             ;
+    stx quadrant                        ;
+
+    lda variables_start,y               ;
+    sta newx                            ; newx = variable[y]
+    lda variables_start + 1,y           ;
+    sta newx + 1                        ;
+
+    lda y                               ;
+    sta newy                            ;
+    lda y+1                             ; newy = y
+    sta newy + 1                        ;
+
+    jsr add_point_quadrant              ;
+
+    lda newy                            ;
+    ora newy + 1                        ;
+    beq return1                         ; IF (Y=0) return
+
+    ldx #newy - variables_start         ;
+    ldy #newy - variables_start         ;
+    jsr negate16                        ; newy = -newy
+
+    ldx #newx - variables_start         ;
+    ldy #newx - variables_start         ;
+    jsr negate16                        ; newx = -newx
+
+    lda #3                              ;
+    sec                                 ;
+    sbc quadrant                        ;
+    sta quadrant                        ; quadrant = 3-quadrant
+
+    lda #8                              ;
+    sec                                 ;
+    sbc dir                             ;
+    sta dir                             ; dir = 8-dir
+    ; fall through...
+
+; ***************************************************************************************
+;
+; On Entry:
+;   quadrant is the quadrant of the ellipse to add to
+;   dir is the direction since the last point of the quadrant
+;   newx, newy are the 16 bit coordinates of the point to add
+;
+; ***************************************************************************************
+add_point_quadrant
+    ; to test the right points are here draw a point and return
+    ;lda #69                             ;
+    ;sta plot_type                       ;
+    ;ldx #newx - variables_start         ;
+    ;ldy #newy - variables_start         ;
+    ;jmp plot_xy                         ; PLOT 69, newx*4, newy*4
+
+    ldx quadrant                        ;
+    lda state,x                         ;
+    beq state_zero                      ; if (state[quadrant] == 0) { goto state_zero }
+    cmp #1                              ;
+    bne state_two                       ; if (state[quadrant] == 2) { goto state_two }
+    ; fall through...
+
+; ***************************************************************************************
+;
+; Handle state one
+;
+; On Entry:
+;   X = quadrant
+;   dir = direction
+;   newx, newy are the 16 bit coordinates of the point to add
+;
+; ***************************************************************************************
+state_one
+    ldy dir                             ;
+    lda rootChildren,y                  ;
+    sta treepos,x                       ; treepos[quadrant] = rootChildren[dir];
+
+    lda newx                            ;
+    sta lastBlueXLow,x                  ;
+    lda newx + 1                        ;
+    sta lastBlueXHigh,x                 ; lastBlueX[quadrant] = newx;
+
+    lda newy                            ;
+    sta lastBlueYLow,x                  ;
+    lda newy + 1                        ;
+    sta lastBlueYHigh,x                 ; lastBlueY[quadrant] = newy;
+
+    lda direction0,y                    ; d0[quadrant] = direction0[dir];
+    sta dir0,x                          ; d1[quadrant] = direction1[dir];
+    lda direction1,y                    ; d2[quadrant] = direction2[dir];
+    sta dir1,x                          ;
+    lda direction2,y                    ;
+    sta dir2,x                          ;
+
+    lda #2                              ;
+    sta state,x                         ; state[quadrant] = 2;
+    rts                                 ;
+
+; ***************************************************************************************
+;
+; Handle state two
+;
+; On Entry:
+;   X = quadrant
+;
+; ***************************************************************************************
+state_two
+    jsr get_child_from_dir              ;
+    cmp #255                            ;
+    beq out_of_tree                     ; IF newpos == 255 THEN GOTO...
+
+    sta treepos,x                       ; treepos[quadrant] = newpos;
+    tay                                 ;
+    lda isBlue,y                        ;
+    bmi blue_node_found                 ; IF isBlue[newpos] < 0 THEN GOTO...
+
+    ; yellow node
+    lda dir                             ;
+    ldy stackptr,x                      ;
+    sta stack,y                         ; stack[stackptr[quadrant]] = dir;
+    inc stackptr,x                      ; stackptr[quadrant]++;
+    rts                                 ;
+
+; ***************************************************************************************
+;
+; Handle state zero
+;
+; On Entry:
+;   X = quadrant
+;   newx, newy are the 16 bit coordinates of the point to add
+;
+; ***************************************************************************************
+state_zero
+    lda newx                            ;
+    sta lastMoveXLow,x                  ; lastMoveX[quadrant] = newx;
+    sta lastBlueXLow,x                  ; lastBlueX[quadrant] = newx;
+    lda newx + 1                        ;
+    sta lastMoveXHigh,x                 ;
+    sta lastBlueXHigh,x                 ;
+
+    lda newy                            ;
+    sta lastMoveYLow,x                  ;
+    sta lastBlueYLow,x                  ; lastMoveY[quadrant] = newy;
+    lda newy + 1                        ; lastBlueY[quadrant] = newy;
+    sta lastMoveYHigh,x                 ;
+    sta lastBlueYHigh,x                 ;
+
+    lda eight_times_table,x             ;
+    sta stackptr,x                      ; stackptr[quadrant] = 8*quadrant;
+    lda #1                              ;
+    sta state,x                         ; state[quadrant] = 1;
+    rts                                 ;
+
+blue_node_found
+    ; blue node
+    lda eight_times_table,x             ;
+    sta stackptr,x                      ; stackptr[quadrant] = 8*quadrant;
+
+    lda newx                            ;
+    sta lastBlueXLow,x                  ;
+    lda newx + 1                        ;
+    sta lastBlueXHigh,x                 ; lastBlueX[quadrant] = newx;
+
+    lda newy                            ;
+    sta lastBlueYLow,x                  ;
+    lda newy + 1                        ;
+    sta lastBlueYHigh,x                 ; lastBlueY[quadrant] = newy;
+return4
+    rts                                 ;
+
+out_of_tree
+    jsr draw_line                       ; MOVE cx+lastMoveX, cy+lastMoveY: DRAW cx+lastBlueX, cy+lastBlueY
+
+    ldx quadrant                        ;
+    lda treepos,x                       ;
+    tay                                 ;
+    lda isBlue,y                        ;
+    bmi state_zero                      ; if ((isBlue[treepos[quadrant]] & 128) < 0) { GOTO state_zero }
+
+    ; Add the current move to stack
+    lda stackptr,x                      ;
+    tay                                 ;
+    lda dir                             ;
+    sta stack,y                         ; stack[stackptr[quadrant]] = dir;
+    inc stackptr,x                      ; stackptr[quadrant]++;
+
+    lda #0                              ;
+    sta state,x                         ; state[quadrant] = 0
+
+    tay                                 ;
+    lda stackptr,x                      ;
+    sta end,y                           ; end[depth] = stackptr[quadrant];
+
+    lda lastBlueXLow,x                  ;
+    sta newx                            ;
+    lda lastBlueXHigh,x                 ;
+    sta newx + 1                        ; newx = lastBlueX
+
+    lda lastBlueYLow,x                  ;
+    sta newy                            ;
+    lda lastBlueYHigh,x                 ;
+    sta newy + 1                        ; newy = lastBlueY
+
+    lda eight_times_table,x             ;
+    sta i,y                             ;
+                                        ; for(i[depth] = 8*quadrant; i[depth] < end[depth]; i[depth]++) {
+-
+    ldy depth                           ;
+    lda i,y                             ;
+    cmp end,y                           ;
+    bcs return4                         ; if (i[depth] >= end[depth]) return
+
+    tay                                 ;
+    lda stack,y                         ;
+    sta dir                             ; dir = stack[i];
+
+    tay                                 ; Y = stack[i];
+    lda newx                            ;
+    clc                                 ;
+    adc dxLow,y                         ;
+    sta newx                            ;
+    lda newx+1                          ;
+    adc dxHigh,y                        ;
+    sta newx+1                          ; newx += dx[dir];
+
+    lda newy                            ;
+    clc                                 ;
+    adc dyLow,y                         ;
+    sta newy                            ;
+    lda newy+1                          ;
+    adc dyHigh,y                        ;
+    sta newy+1                          ; newy += dy[dir];
+
+    inc depth
+    jsr add_point_quadrant              ; add_point_quadrant(pg, quadrant, newx, newy, dir);
+    dec depth                           ;
+
+    ldy depth                           ;
+    lda i,y                             ;
+    clc                                 ;
+    adc #1                              ;
+    sta i,y                             ; i[depth]++;
+    jmp -                               ;
+
+; ***************************************************************************************
+finish_off
+    ldx quadrant                        ;
+    lda state,x                         ;
+    beq return3                         ;
+    jsr draw_line                       ; MOVE cx+lastMoveX, cy+lastMoveY: DRAW cx+lastBlueX, cy+lastBlueY
+    ldx quadrant                        ;
+    ; fall through...
+
+; ***************************************************************************************
+draw_pixels_since_last_blue
+    lda #0                              ;
+    sta state,x                         ; state[quadrant] = 0;
+
+    lda stackptr,x                      ;
+    sta end                             ; end = stackptr[quadrant];
+
+
+    lda lastBlueXLow,x                  ;
+    sta pixelx                          ;
+    lda lastBlueXHigh,x                 ;
+    sta pixelx + 1                      ; pixelx = lastBlueX
+
+    lda lastBlueYLow,x                  ;
+    sta pixely                          ;
+    lda lastBlueYHigh,x                 ;
+    sta pixely + 1                      ; pixely = lastBlueY
+
+    lda eight_times_table,x             ;
+    sta i                               ;
+                                        ; for(int i = 8*quadrant; i < end; i++) {
+-
+    lda i                               ;
+    cmp end                             ;
+    bcs return2                         ; if (i >= end) GOTO
+
+    tay                                 ;
+    lda stack,y                         ;
+;    sta dir                             ; dir = stack[i];
+
+    tay                                 ; Y = stack[i];
+    lda pixelx                          ;
+    clc                                 ;
+    adc dxLow,y                         ;
+    sta pixelx                          ;
+    lda pixelx+1                        ;
+    adc dxHigh,y                        ;
+    sta pixelx+1                        ; pixelx += dx[dir];
+
+    lda pixely                          ;
+    clc                                 ;
+    adc dyLow,y                         ;
+    sta pixely                          ;
+    lda pixely+1                        ;
+    adc dyHigh,y                        ;
+    sta pixely+1                        ; pixely += dy[dir];
+
+    jsr plot_point                      ; plot_point(cx + pixelx, cy + pixely)
+
+    inc i                               ;
+    jmp -                               ;
+
+; ***************************************************************************************
+get_child_from_dir
+    ldy treepos,x                       ;
+    lda dir                             ;
+    cmp dir0,x                          ;
+    bne +                               ;
+    lda child0,y                        ;
+return3
+    rts                                 ;
++
+    cmp dir1,x                          ;
+    bne +                               ;
+    lda child1,y                        ;
+    rts                                 ;
++
+    cmp dir2,x                          ;
+    bne +                               ;
+    lda child2,y                        ;
+    rts                                 ;
++
+    lda #255                            ;
+return2
+    rts                                 ;
+
+; ***************************************************************************************
+state
+    !byte 0,0,0,0
+treepos
+    !byte 0,0,0,0
+dir0
+    !byte 0,0,0,0
+dir1
+    !byte 0,0,0,0
+dir2
+    !byte 0,0,0,0
+lastBlueXLow
+    !byte 0,0,0,0
+lastBlueXHigh
+    !byte 0,0,0,0
+lastBlueYLow
+    !byte 0,0,0,0
+lastBlueYHigh
+    !byte 0,0,0,0
+lastMoveXLow
+    !byte 0,0,0,0
+lastMoveXHigh
+    !byte 0,0,0,0
+lastMoveYLow
+    !byte 0,0,0,0
+lastMoveYHigh
+    !byte 0,0,0,0
+stackptr
+    !byte 0,0,0,0
+
+stack
+    !byte 0,0,0,0,0,0,0,0
+    !byte 0,0,0,0,0,0,0,0
+    !byte 0,0,0,0,0,0,0,0
+    !byte 0,0,0,0,0,0,0,0
+
+i
+    !byte 0,0,0
+end
+    !byte 0,0,0
+
+; ***************************************************************************************
+variables_start
+
 ; inputs
 centrex
     !word 160
@@ -1395,7 +1554,8 @@ b
 zero
     !word 0         ; padding (always zero), used to make multiply32 work on b
 s
-    !le32 -20
+    !le32 -20       ; note: 32 bit
+
 
 ; workspace variables
 x1
@@ -1406,25 +1566,7 @@ ox1
     !word 0
 ox2
     !word 0
-oox1
-    !word 0
-oox2
-    !word 0
-deltax1
-    !word 0
-deltax2
-    !word 0
-odeltax1
-    !word 0
-odeltax2
-    !word 0
 y
-    !word 0
-oy1
-    !word 0
-oy2
-    !word 0
-ym1
     !word 0
 aa
     !le32 0
@@ -1438,8 +1580,6 @@ dd
     !le32 0
 d1
     !le32 0
-ys
-    !le32 0
 t1
     !le32 0
 t2
@@ -1449,10 +1589,6 @@ tt1
 tt2
     !le32 0
 temp
-    !le32 0
-tempX
-    !le32 0
-tempY
     !le32 0
 yyaa
     !le32 0
@@ -1476,5 +1612,31 @@ bt1
     !le32 0
 bt2
     !le32 0
-one
-    !word 1
+
+x
+    !word 0
+increment
+    !word 0
+pixelx
+newx
+    !word 0
+pixely
+newy
+    !word 0
+
+
+; ***************************************************************************************
+; static data
+; ***************************************************************************************
+eight_times_table
+    !byte 0,8,16,24
+dxLow
+    !byte -1, 0, 1, -1, 0, 1, -1, 0, 1
+dxHigh
+    !byte -1, 0, 0, -1, 0, 0, -1, 0, 0
+dyLow
+    !byte -1,-1,-1,0,0,0,1,1,1
+dyHigh
+    !byte -1,-1,-1,0,0,0,0,0,0
+
+!src "linedata.a"

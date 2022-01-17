@@ -1,0 +1,91 @@
+; Data encoding a tree.
+;
+; Consider a 13x13 grid of pixels with origin at the centre having coordinates from
+; (-6,-6) to (6,6).
+; We investigate the rendering of each straight line from (0,0) to some other point on 
+; the grid. There are 13x13=169 of these straight lines.
+;
+; We encode every pixel move along each line into a single tree.
+;
+; An edge of the tree represents a move from one pixel to the next along a straight line.
+
+; Encoding Directions:
+; We represent the directions from a point X to an adjacent pixel by a number 0-8 (The
+; number four is unused. This is an implementation detail to optimise the speed of the
+; code):
+;
+;             678
+;             3X5
+;             012
+; Figure A - encoding directions
+;
+; Moving from the root of the tree to the first level is in one of eight directions.
+; With an initial direction chosen, the straight line then has only three directions
+; for the remainder of the pixels along it's length, since straight lines don't turn 90
+; degrees or more. For instance, if the straight line starts in direction 0, then the
+; each following pixel move for that straight line is in one of the three directions
+; (3,0,1) - see Figure A.
+
+; Nodes:
+; There are 93 nodes in the tree, so each node can be specified by a single byte (0-92).
+;
+; Each node of the tree stores up to three children and blue/yellow flag (four bytes total).
+; For speed, we store these values in four separate arrays of bytes 'child0', 'child1',
+; 'child2', and 'isBlue' in the data below. A value of 255 represents no edge present.
+;
+; Each node is 'blue' or 'yellow':
+;
+; A 'blue' node represents the end of a straight line rendering from the origin.
+; There are 13x13=169 blue nodes.
+; 'Yellow' nodes are the remainder - intermediate nodes part way towards longer line(s).
+
+; Child nodes of the root:
+; The root of the tree has nine children, one for each direction, but direction four is
+; unused so really only eight directions. This number is reduced further to three due to
+; symmetry. Hence only the values 0,1,2 are found in the 'rootChildren' table.
+; The numbers are indices into the arrays 'child0', 'child1', 'child2', and 'isBlue' below.
+rootChildren
+   !byte 0,1,2,1,0,0,2,0,1
+
+; These arrays store the possible future directions of a straight line given an initial
+; direction as index, e.g. initial direction 0 (i.e. index 0) has possible
+; future directions (3,0,1) stored in the three arrays below.
+direction0
+   !byte 3,0,1,0,4,2,3,6,7
+direction1
+   !byte 0,1,2,3,4,5,6,7,8
+direction2
+   !byte 1,2,5,6,4,8,7,8,5
+
+; Each node below the root node is stored in the following arrays.
+; Each node is specified by an index into these arrays, and each node stores a value for
+; up to three children (each of these values also being an index) and an isBlue flag
+; stored in the top bit.
+child0
+    !byte 3,6,9,255,13,255,255,18,255,255,23,255,27,255,30,255
+    !byte 255,36,255,255,255,255,43,255,46,255,255,255,52,255,255,255
+    !byte 255,255,255,255,255,61,255,255,255,255,255,255,68,255,255,255
+    !byte 255,255,255,75,255,255,255,255,255,255,255,255,255,255,255,255
+    !byte 255,255,255,87,255,255,255,255,255,255,255,255,255,255,255,255
+    !byte 255,255,255,255,255,255,255,255,255,255,255,255,255
+child1
+    !byte 4,7,10,12,14,16,17,19,21,22,24,26,28,29,31,33
+    !byte 34,37,38,39,40,41,44,45,47,48,49,51,255,53,54,55
+    !byte 56,57,255,59,60,255,62,63,64,255,66,67,255,69,70,71
+    !byte 72,255,74,255,76,255,77,78,79,255,80,255,255,82,83,84
+    !byte 85,86,255,255,88,255,89,90,91,92,255,255,255,255,255,255
+    !byte 255,255,255,255,255,255,255,255,255,255,255,255,255
+child2
+    !byte 5,8,11,255,15,255,255,20,255,255,25,255,255,255,32,255
+    !byte 35,255,255,255,255,42,255,255,255,255,50,255,255,255,255,255
+    !byte 255,255,58,255,255,255,255,255,255,65,255,255,255,255,255,255
+    !byte 255,73,255,255,255,255,255,255,255,255,255,81,255,255,255,255
+    !byte 255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255
+    !byte 255,255,255,255,255,255,255,255,255,255,255,255,255
+isBlue
+    !byte 128,128,128,128,128,128,0,128,0,128,128,0,128,0,128,0
+    !byte 128,128,0,128,0,128,128,0,128,0,128,128,0,128,0,128
+    !byte 0,128,0,128,0,128,0,128,0,128,0,128,0,128,0,128
+    !byte 0,128,0,128,0,128,0,128,0,128,0,128,128,0,128,128
+    !byte 128,0,128,128,0,128,0,128,128,0,128,128,128,128,128,128
+    !byte 128,128,128,128,128,128,128,128,128,128,128,128,128
