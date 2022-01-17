@@ -49,7 +49,7 @@ Starting at the root of the tree, the routine will move a pointer from one node 
 Because our ellipse is drawn in four quadrants, each quadrant has it's own set of state  for traversing the tree.
 
 ### Implementation details
-A python script (asm/create_table.py) is used to create the tree and output the appropriate data (asm/linedata.a).
+A python script (asm/create_table.py) is used to create the tree and output the appropriate data (asm/linedata.a). The runtime code (asm/ellips2.a) is the main file to assemble.
 
 There are 93 nodes in the symmetry reduced tree, so each node can be identified by a single byte.
 
