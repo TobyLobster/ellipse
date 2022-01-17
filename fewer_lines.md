@@ -35,7 +35,7 @@ Each node in the tree is coloured blue or yellow. If a node in the tree represen
 
 The resulting tree looks like this:
 
-![Full tree](line_data_.png)
+![Full tree](line_data.png)
 
 The root of the tree has eight children, corresponding to the eight directions that can be taken from the first pixel. Each subtree's nodes from this point onwards has at most three children.
 
