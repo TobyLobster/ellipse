@@ -28,7 +28,12 @@ Figure A - encoding directions
 
 Moving from the root of the tree is in one of eight directions.
 
-However once an initial direction is chosen the straight line then has only three directions it can continue along (since straight lines don't turn 90 degrees). For instance, if the straight line starts in direction 0, then each following pixel move for that particular straight line is in one of the three directions (3,0,1) as seen in Figure A.
+However once an initial direction is chosen the straight line then has only three directions it can continue along (since straight lines don't turn 90 degrees):
+- the same initial direction
+- one step clockwise from the initial direction
+- one step anti-clockwise from the initial direction
+
+For instance, if the straight line starts in direction 0, then each following pixel move for that particular straight line is in one of the three directions (3,0,1) as seen in Figure A.
 
 ### Blue and Yellow nodes
 Each node in the tree is coloured blue or yellow. If a node in the tree represents the final pixel of a straight line, then we colour it blue. Yellow nodes are the remainder - intermediate nodes part way towards longer line(s).
