@@ -57,7 +57,6 @@ Each node of the tree stores three children and blue/yellow flag (four bytes tot
 For speed, we store these values in four separate arrays of bytes 'child0', 'child1',
 'child2', and 'isBlue'. A value of 255 means no child is present.
 
-Children of the root
 The root is a special case as is has eight children, which is reduced to three due to symmetry as noted above. We store a mapping from the eight possible initial directions to the root of one of the three unique subtrees. We also store the three possible continuing directions for the subtree for each initial direction.
 
 ### Limitations
