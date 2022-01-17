@@ -35,7 +35,7 @@ Each node in the tree is coloured blue or yellow. If a node in the tree represen
 
 The resulting tree looks like this:
 
-![Full tree](tree.png)
+![Full tree](line_data_.png)
 
 The root of the tree has eight children, corresponding to the eight directions that can be taken from the first pixel. Each subtree's nodes from this point onwards has at most three children.
 
@@ -59,7 +59,7 @@ Children of the root
 The root of the tree is a special case as is has eight children, which is reduced to three due to symmetry as noted above. We store a mapping from the eight possible initial directions to the root of one of the three unique subtrees. We also store the three possible continuing directions for the subtree for each initial direction.
 
 ### Limitations
-Different operating systems can render straight lines in slightly different ways. This will affect the data produced. So the data is OS specific.
+Different operating systems can render straight lines in slightly different ways. This will affect the data produced. So the data is to some degree OS specific when relying on an OS specific line drawing routine.
 
 ### Future Development ###
 This technique is not just useful for ellipses, but can be used with any shape that's drawn using adjacent pixels.
