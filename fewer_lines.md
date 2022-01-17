@@ -1,6 +1,10 @@
-## Drawing Fewer Lines
+## Drawing Ellipses With Fewer Straight Lines
 
 To reduce the number of lines being drawn while retaining the pixel perfect ellipse shape we pre-calculate a static tree structure that encodes all possible straight line renderings from a fixed starting point. To limit the size of the tree, we limit the length of the straight lines.
+
+We are attempting to optimise the runtime for drawing an ellipse. We have an algorithm that traces the pixels of an ellipse. Instead of drawing each pixel, we call a new routine.
+
+Starting at the root of the tree, the routine will move a pointer from one node of the tree to one of it's children (if possible). If we run out of tree (the latest direction does not lead to a new child node), then we (a) draw the longest straight line so far enountered since the root (up to the last blue node we visited), and (b) replay any remaining yellow node moves to the new routine (recursively).
 
 ### Making the Tree
 In particular, consider a 13x13 grid of pixels with origin at the centre. Coordinates
@@ -41,13 +45,6 @@ The root has eight children, corresponding to the eight directions that can be t
 
 By symmetry, we see that only the first three subtrees are unique. The remainder of the subtrees are identical to one of the first three, with suitable reordering of the directions.
 
-### Drawing the Ellipse
-We are attempting to optimise the runtime for drawing an ellipse. We have an algorithm that traces the pixels of an ellipse. Instead of drawing each pixel, we call a new routine.
-
-Starting at the root of the tree, the routine will move a pointer from one node of the tree to one of it's children (if possible). If we run out of tree (the latest direction does not lead to a new child node), then we (a) draw the longest straight line so far enountered since the root (up to the last blue node we visited), and (b) replay any remaining yellow node moves to the new routine (recursively).
-
-Because our ellipse is drawn in four quadrants, each quadrant has it's own set of state  for traversing the tree.
-
 ### Implementation details
 A python script (asm/create_table.py) is used to create the tree and output the appropriate data (asm/linedata.a). The runtime code (asm/ellips2.a) is the main file to assemble.
 
@@ -58,6 +55,8 @@ For speed, we store these values in four separate arrays of bytes 'child0', 'chi
 'child2', and 'isBlue'. A value of 255 means no child is present.
 
 The root is a special case as is has eight children, which is reduced to three due to symmetry as noted above. We store a mapping from the eight possible initial directions to the root of one of the three unique subtrees. We also store the three possible continuing directions for the subtree for each initial direction.
+
+Because our ellipse is drawn in four quadrants, each quadrant has it's own set of state  for traversing the tree.
 
 ### Limitations
 Different operating systems can render straight lines in slightly different ways. This will affect the data produced. So the data is to some degree OS specific when relying on an OS specific line drawing routine.
