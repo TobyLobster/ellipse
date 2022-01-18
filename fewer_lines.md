@@ -56,17 +56,17 @@ By symmetry, we see that only the first three subtrees are unique. The remainder
 
 Where A,B,C are directions determined by the initial direction:
 
-| Initial direction | A | B | C |
-| :---------------: | - | - | - |
-| 0                 | 3 | 0 | 1 |
-| 1                 | 0 | 1 | 2 |
-| 2                 | 1 | 2 | 5 |
-| 3                 | 0 | 3 | 6 |
-| 4                 | - | - | - |
-| 5                 | 2 | 5 | 8 |
-| 6                 | 3 | 6 | 7 |
-| 7                 | 6 | 7 | 8 |
-| 8                 | 7 | 8 | 5 |
+| Initial direction | Subtree Root | A | B | C |
+| :---------------: | :----------: | - | - | - |
+| 0                 | node 0  		| 3 | 0 | 1 |
+| 1                 | node 1  		| 0 | 1 | 2 |
+| 2                 | node 2  		| 1 | 2 | 5 |
+| 3                 | node 1  		| 0 | 3 | 6 |
+| 4                 | node 0  		| - | - | - |
+| 5                 | node 0  		| 2 | 5 | 8 |
+| 6                 | node 2  		| 3 | 6 | 7 |
+| 7                 | node 0  		| 6 | 7 | 8 |
+| 8                 | node 1  		| 7 | 8 | 5 |
 
 ### Implementation details
 A python script (asm/create_table.py) is used to create the tree and output the appropriate data (asm/linedata.a). The runtime code (asm/ellips2.a) is the main file to assemble.
