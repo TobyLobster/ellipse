@@ -4,7 +4,7 @@ To reduce the number of straight lines being drawn while retaining the pixel per
 
 We are attempting to optimise the runtime for drawing an ellipse. We have an algorithm that traces the pixels of an ellipse. Instead of drawing each pixel, we call a new routine.
 
-Starting at the root of the tree, the routine will move a pointer from one node of the tree to one of it's children (if possible). If we run out of tree (the latest direction does not lead to a new child node), then we (a) draw the longest straight line so far enountered since the root (up to the last blue node we visited), and (b) replay any remaining yellow node moves to the new routine (recursively).
+Starting at the root of the tree, the routine will move a pointer from one node of the tree to one of it's children (if possible) depending on the direction taken. If we run out of tree (the latest direction does not lead to a new child node), then we draw the longest straight line found in the tree so far and continue the process starting at the root of the tree again.
 
 ### Making the Tree
 In particular, consider a 13x13 grid of pixels with origin at the centre. Coordinates
@@ -48,7 +48,23 @@ The resulting tree looks like this:
 
 The root has eight children, corresponding to the eight directions that can be taken from the first pixel. Each subtree's nodes from this point onwards has at most three children.
 
-By symmetry, we see that only the first three subtrees are unique. The remainder of the subtrees are identical to one of the first three, with suitable reordering of the directions.
+By symmetry, we see that only the first three subtrees are unique. The remainder of the subtrees are identical to one of the first three, with suitable reordering of the directions. So we get three subtrees:
+
+![Reduced tree](subtree3.png)
+
+Where A,B,C are directions determined by the initial direction:
+
+| Initial direction | A | B | C |
+| :---------------: | - | - | - |
+| 0                 | 3 | 0 | 1 |
+| 1                 | 0 | 1 | 2 |
+| 2                 | 1 | 2 | 5 |
+| 3                 | 0 | 3 | 6 |
+| 4                 | - | - | - |
+| 5                 | 2 | 5 | 8 |
+| 6                 | 3 | 6 | 7 |
+| 7                 | 6 | 7 | 8 |
+| 8                 | 7 | 8 | 5 |
 
 ### Implementation details
 A python script (asm/create_table.py) is used to create the tree and output the appropriate data (asm/linedata.a). The runtime code (asm/ellips2.a) is the main file to assemble.
@@ -60,6 +76,8 @@ For speed, we store these values in four separate arrays of bytes 'child0', 'chi
 'child2', and 'isBlue'. A value of 255 means no child is present.
 
 The root is a special case as is has eight children, which is reduced to three due to symmetry as noted above. We store a mapping from the eight possible initial directions to the root of one of the three unique subtrees. We also store the three possible continuing directions for the subtree for each initial direction.
+
+In the runtime, at each iteration we move from a node to it's child. If we run out of tree (the latest direction does not lead to a new child node), then we (a) draw the longest straight line so far encountered (from the root node to the last blue node we visited), and (b) replay any remaining yellow node moves to the new routine (recursively).
 
 Because our ellipse is drawn in four quadrants, each quadrant has it's own set of state  for traversing the tree.
 

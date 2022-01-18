@@ -2,4 +2,6 @@ set -e
 
 python3 asm/create_table.py
 dot -Tpng build/line_data.dot >line_data.png
+dot -Tpng build/subtrees.dot >subtrees.png
+dot -Tpng build/subtrees3.dot >subtrees3.png
 #open line_data.png

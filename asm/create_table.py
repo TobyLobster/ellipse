@@ -219,19 +219,43 @@ class Grid:
         self.ocx = cx
         self.ocy = cy
 
-    # Output the tree to a ".dot" file
-    def DrawTree(self, dotFile):
-        centreX = gridWidth//2
-        centreY = gridHeight//2
-        centre = str(centreX) + "," + str(centreY)
-        totalLines = str(gridWidth*gridHeight)
+def WriteLine(file, line):
+    file.write(line + "\n")
 
-        dotFile.write("digraph tree {")
-        dotFile.write("    graph [labelloc=\"b\" labeljust=\"l\" label=\"\lGiven a " + str(gridWidth) + "x" + str(gridHeight) + " grid of pixels, we consider all " + totalLines + " straight lines that can be drawn from the origin (0,0) at the centre of the grid to each pixel in the grid. We construct a tree.\lEach blue node represents a straight line that can be drawn from the origin by following the (dx,dy) moves along each edge. Note that there are " + totalLines + " blue nodes.\lThe yellow nodes are intermediate nodes that need to be traversed in the hope of reaching a blue node further down the tree.\lEach node is labelled 'node N at (X,Y)' where N is a unique index for each node, and (X,Y) are the coordinates of the pixel being visited.\l\"];")
+# Output the tree to a ".dot" file
+def DrawTree(dotFile):
+    totalLines = str(gridWidth*gridHeight)
 
-        stack = []
+    WriteLine(dotFile, "digraph tree {")
+    WriteLine(dotFile, "    graph [labelloc=\"b\" labeljust=\"l\" label=\"\lGiven a " + str(gridWidth) + "x" + str(gridHeight) + " grid of pixels, we consider all " + totalLines + " straight lines that can be drawn from the origin (0,0) at the centre of the grid to each pixel in the grid. We construct a tree.\lEach blue node represents a straight line that can be drawn from the origin by following the (dx,dy) moves along each edge. Note that there are " + totalLines + " blue nodes.\lThe yellow nodes are intermediate nodes that need to be traversed in the hope of reaching a blue node further down the tree.\lEach node is labelled 'node N at (X,Y)' where N is a unique index for each node, and (X,Y) are the coordinates of the pixel being visited.\l\"];")
 
-        stack.append(root)
+    stack = []
+
+    stack.append(root)
+    while stack:
+        node = stack.pop()
+        nodeLabel = "node " + str(node.arrayIndex) + "\\n at (" + str(node.cx) + "," + str(node.cy) + ")"
+        if (node.isValidDestination):
+            color = "00BFFF"    # blue
+        else:
+            color = "F6C85F"    # yellow
+        WriteLine(dotFile, " node" + str(node.nodeIndex) + " [label=\"" + nodeLabel + "\",fillcolor=\"#" + color + "\",style=filled]")
+        line = "    node" + str(node.nodeIndex) + " -> "
+        for c in node.children:
+            if c != None:
+                label = labelArray.get(c.directionFromParent, "Invalid input")
+                line_end = "node" + str(c.nodeIndex) + " [label=\" " + label + "\" ];"
+                stack.append(c)
+                WriteLine(dotFile, line + line_end)
+    WriteLine(dotFile, "}")
+
+def DrawSubTrees(subTrees, dotFile):
+    WriteLine(dotFile, "digraph tree {")
+
+    stack = []
+
+    for subTree in subTrees:
+        stack.append(subTree.root)
         while stack:
             node = stack.pop()
             nodeLabel = "node " + str(node.arrayIndex) + "\\n at (" + str(node.cx) + "," + str(node.cy) + ")"
@@ -239,15 +263,48 @@ class Grid:
                 color = "00BFFF"    # blue
             else:
                 color = "F6C85F"    # yellow
-            dotFile.write(" node" + str(node.nodeIndex) + " [label=\"" + nodeLabel + "\",fillcolor=\"#" + color + "\",style=filled]")
+            WriteLine(dotFile, " node" + str(node.nodeIndex) + " [label=\"" + nodeLabel + "\",fillcolor=\"#" + color + "\",style=filled]")
             line = "    node" + str(node.nodeIndex) + " -> "
             for c in node.children:
                 if c != None:
                     label = labelArray.get(c.directionFromParent, "Invalid input")
                     line_end = "node" + str(c.nodeIndex) + " [label=\" " + label + "\" ];"
                     stack.append(c)
-                    dotFile.write(line + line_end)
-        dotFile.write("}")
+                    WriteLine(dotFile, line + line_end)
+    WriteLine(dotFile, "}")
+
+def DrawSubTrees3(subTrees, dotFile):
+    WriteLine(dotFile, "digraph tree {")
+
+    stack = []
+
+    for subTree in subTrees:
+        stack.append(subTree.root)
+        while stack:
+            node = stack.pop()
+            nodeLabel = "node " + str(node.arrayIndex)
+            if (node.isValidDestination):
+                color = "00BFFF"    # blue
+            else:
+                color = "F6C85F"    # yellow
+            WriteLine(dotFile, " node" + str(node.nodeIndex) + " [label=\"" + nodeLabel + "\",fillcolor=\"#" + color + "\",style=filled]")
+            line = "    node" + str(node.nodeIndex) + " -> "
+            foundChildIndex = 0
+            for c in node.children:
+                if c != None:
+                    if c.directionFromParent == subTree.A:
+                        foundChildIndex = 0
+                    elif c.directionFromParent == subTree.B:
+                        foundChildIndex = 1
+                    elif c.directionFromParent == subTree.C:
+                        foundChildIndex = 2
+
+                    label = "ABC"[foundChildIndex]
+                    line_end = "node" + str(c.nodeIndex) + " [label=\" " + label + "\" ];"
+                    stack.append(c)
+                    WriteLine(dotFile, line + line_end)
+                    foundChildIndex += 1
+    WriteLine(dotFile, "}")
 
 class SubTree:
     A = -1
@@ -382,10 +439,12 @@ while queue:
             queue.append(c)
 
 
-
 # Output tree
 with open('build/line_data.dot', 'w') as dotFile:
-    pixels.DrawTree(dotFile)
+    DrawTree(dotFile)
+
+with open('build/subtrees.dot', 'w') as dotFile:
+    DrawSubTrees(subTrees, dotFile)
 
 # Just keep the first three subtrees
 threeSubTrees = subTrees[0:3]
@@ -404,6 +463,10 @@ while queue:
     for c in node.children:
         if c:
             queue.append(c)
+
+# Output subtree dot file
+with open('build/subtrees3.dot', 'w') as dotFile:
+    DrawSubTrees3(threeSubTrees, dotFile)
 
 # write second ASM file (storing the data in bytes)
 with open('asm/linedata.a', 'w') as f:
