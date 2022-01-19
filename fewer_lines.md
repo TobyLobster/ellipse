@@ -2,9 +2,9 @@
 
 See this code running [here](http://bbc.godbolt.org/?autoboot&disc=https://raw.githubusercontent.com/TobyLobster/ellipse/diagonals/ELLIPS2.SSD).
 
-To reduce the number of straight lines being drawn while retaining the pixel perfect ellipse shape we pre-calculate a static tree structure that encodes all possible straight line renderings from a fixed starting point. To limit the size of the tree, we limit the length of the lines.
+We are attempting to optimise the runtime for drawing an ellipse. To reduce the number of straight lines being drawn while retaining the pixel perfect ellipse shape we pre-calculate a static tree structure that encodes all possible straight line renderings from a fixed starting point. To limit the size of the tree, we limit the length of the lines.
 
-We are attempting to optimise the runtime for drawing an ellipse. We have an algorithm that traces the pixels of an ellipse. Instead of drawing each pixel, we call a new routine.
+We have an existing algorithm that traces the pixels of an ellipse. Instead of drawing each pixel, we call a new routine (add_point).
 
 Starting at the root of the tree, the routine will move a pointer from one node of the tree to one of its children (if possible) depending on the direction taken. If we run out of tree (the latest direction does not lead to a new child node), then we draw the longest straight line found in the tree so far and continue the process starting at the root of the tree again.
 
