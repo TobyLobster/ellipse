@@ -1,472 +1,134 @@
 # Python3 code to draw lines in a grid as per a BBC Micro, to construct a tree of straight lines
 
-depth = 6
-gridWidth = depth*2 + 1
-gridHeight = gridWidth
-bytesWrittenOnLine = 0
+import constants
+import asm_writer
+import grid
+import dot_writer
+import subgraph
+from node import *
 
-labelArray = {
-    0:"(-1,-1)",
-    1:"(0,-1)",
-    2:"(1,-1)",
-    3:"(-1,0)",
-    4:"(0,0)",
-    5:"(1,0)",
-    6:"(-1,1)",
-    7:"(0,1)",
-    8:"(1,1)",
-    }
+def CreateSubgraphs(root):
+    # Create eight subgraphs (initially they are trees), one for each child of the root
+    subgraphs = []
+    for child in root.children:
+        if child:
+            childIndexes = []
+            for i in range(0,9):
+                if child.children[i]:
+                    direction = i
+                    childIndexes.append(direction)
 
-nodeCounter = 0
+            # Three directions are possible: A,B,C
+            subgraphs.append(subgraph.SubGraph(childIndexes[0], childIndexes[1], childIndexes[2], child))
 
-def sign_bit(x):
-    if (x < 0):
-        return True
-    return False
-
-def DirFromDXDY(dx,dy):
-    return (dx+1) + 3*(dy+1)
-
-def startWriteByteData():
-    global bytesWrittenOnLine
-
-    bytesWrittenOnLine = 0
-
-def writeByteData(byte, f):
-    global bytesWrittenOnLine
-
-    if bytesWrittenOnLine == 16:
-        f.write('\n')
-        bytesWrittenOnLine = 0
-    if bytesWrittenOnLine == 0:
-        f.write('    !byte ')
-    elif bytesWrittenOnLine != 0:
-        f.write(",")
-    f.write(str(byte))
-    bytesWrittenOnLine += 1
-
-def endWriteByteData(f):
-    f.write('\n')
-
-def writeBitData(array, f):
-    index = 0
-    a = 0
-    startWriteByteData()
-    for x in array:
-        if x:
-            a += 1
-        if index == 7:
-            writeByteData(a, f)
-            index = 0
-            a = 0
-        else:
-            index += 1
-            a *= 2
-
-    # flush remaining bits
-    if index != 0:
-        writeByteData(a,f)
-    endWriteByteData(f)
-
-class Node:
-    directionFromParent = -1
-    cellIndex = 0
-    children = [None, None, None, None, None, None, None, None, None]
-    parent = None
-    isValidDestination = False
-    cx = 0
-    cy = 0
-
-    def __init__(self, cellIndex, directionFromParent, cx, cy):
-        global nodeCounter
-
-        self.cellIndex = cellIndex
-        self.directionFromParent = directionFromParent
-        self.nodeIndex = nodeCounter
-        self.arrayIndex = -1    # not set
-        nodeCounter += 1
-        self.children = [None, None, None, None, None, None, None, None, None]
-        self.parent = None
-        self.cx = cx
-        self.cy = cy
-
-    def AddToTree(self, dx, dy, isValidDestination, cx, cy):
-        dir = DirFromDXDY(dx,dy)
-        if (self.children[dir] == None):
-            offset = (dy + 1) * gridWidth + (dx + 1)
-            child = Node(self.cellIndex + offset, dir, cx, cy)
-            self.children[dir] = child
-            child.parent = self
-
-        # record if this is a valid end point for a line
-        self.children[dir].isValidDestination |= isValidDestination
-        return self.children[dir]
-
-class Grid:
-    grid = []
-
-    # For line drawing:
-    node = None
-    ocx = 0
-    ocy = 0
-
-    def __init__(self):
-        self.Clear();
-
-    def Clear(self):
-        self.grid = []
-        for i in range(0,gridWidth * gridHeight):
-            self.grid.append(False)
-
-    def Show(self):
-        result = ""
-        index = 0
-        for y in range(0,gridHeight):
-            for x in range(0,gridWidth):
-                if self.grid[index]:
-                    result += '#'
-                else:
-                    result += '.'
-                index += 1
-            result += '\n'
-        result += '\n'
-        return result
-
-    # For drawing straight lines as per the BBC Micro
-    def DrawLine(self, x1,y1,x2,y2, debug):
-
-        # Calculate deltas
-        dX=x1-x2
-        dY=y1-y2
-        if sign_bit(dX) == sign_bit(dY):
-            increment = 1
-        else:
-            increment = -1
-
-        # Find dominant axis
-        dominant_axis_is_Y = abs(dX) < abs(dY)
-
-        # Set the first point (cx and cy) and last point (tx and ty):
-        if dominant_axis_is_Y:
-            reverse = (dY > 0)
-        else:
-            reverse = (dX > 0)
-
-        if reverse:
-            cx = x2
-            cy = y2
-        else:
-            cx = x1
-            cy = y1
-
-        # Initialise variables including the the step counter, and the error term
-        if dominant_axis_is_Y:
-            dDomAxis = dY
-            dNonDomAxis = dX
-        else:
-            dDomAxis = dX
-            dNonDomAxis = dY
-
-        dDomAxis    = abs(dDomAxis)
-        dNonDomAxis = abs(dNonDomAxis)
-        steps       = -dDomAxis-1
-        error       = dDomAxis // 2
-
-        self.node = root
-        pointList = []
-        done = False
-        while not done:
-            pointList.append((cx, cy))
-
-            error -= dNonDomAxis
-            if error < 0:
-                error=error + dDomAxis
-
-                # update non-dominant axis
-                if dominant_axis_is_Y:
-                    cx += increment
-                else:
-                    cy += increment
-
-            # update dominant axis
-            if dominant_axis_is_Y:
-                cy += 1
-            else:
-                cx += 1
-
-            steps += 1
-            done = steps == 0
-
-        # reverse points if necessary, to get the points in the proper order
-        if reverse:
-            pointList.reverse()
-
-        index = 0
-        (fx, fy) = pointList[0]
-        for (cx,cy) in pointList:
-            isFirstPoint = index == 0
-            isFinalPoint = index == len(pointList)-1
-
-            self.RecordPoint(cx-fx, cy-fy, isFirstPoint, isFinalPoint)
-            self.grid[cx + gridWidth*cy] = True
-            index += 1
-
-    def RecordPoint(self, cx, cy, isFirst, isValidDestination):
-        if not isFirst:
-            dx = cx - self.ocx
-            dy = cy - self.ocy
-            self.node = self.node.AddToTree(dx,dy, isValidDestination, cx, cy)
-        self.ocx = cx
-        self.ocy = cy
-
-def WriteLine(file, line):
-    file.write(line + "\n")
-
-# Output the tree to a ".dot" file
-def DrawTree(dotFile):
-    totalLines = str(gridWidth*gridHeight)
-
-    WriteLine(dotFile, "digraph tree {")
-    WriteLine(dotFile, "    graph [labelloc=\"b\" labeljust=\"l\" label=\"\lGiven a " + str(gridWidth) + "x" + str(gridHeight) + " grid of pixels, we consider all " + totalLines + " straight lines that can be drawn from the origin (0,0) at the centre of the grid to each pixel in the grid. We construct a tree.\lEach blue node represents a straight line that can be drawn from the origin by following the (dx,dy) moves along each edge. Note that there are " + totalLines + " blue nodes.\lThe yellow nodes are intermediate nodes that need to be traversed in the hope of reaching a blue node further down the tree.\lEach node is labelled 'node N at (X,Y)' where N is a unique index for each node, and (X,Y) are the coordinates of the pixel being visited.\l\"];")
-
-    stack = []
-
-    stack.append(root)
-    while stack:
-        node = stack.pop()
-        nodeLabel = "node " + str(node.arrayIndex) + "\\n at (" + str(node.cx) + "," + str(node.cy) + ")"
-        if (node.isValidDestination):
-            color = "00BFFF"    # blue
-        else:
-            color = "F6C85F"    # yellow
-        WriteLine(dotFile, " node" + str(node.nodeIndex) + " [label=\"" + nodeLabel + "\",fillcolor=\"#" + color + "\",style=filled]")
-        line = "    node" + str(node.nodeIndex) + " -> "
-        for c in node.children:
-            if c != None:
-                label = labelArray.get(c.directionFromParent, "Invalid input")
-                line_end = "node" + str(c.nodeIndex) + " [label=\" " + label + "\" ];"
-                stack.append(c)
-                WriteLine(dotFile, line + line_end)
-    WriteLine(dotFile, "}")
-
-def DrawSubTrees(subTrees, dotFile):
-    WriteLine(dotFile, "digraph tree {")
-
-    stack = []
-
-    for subTree in subTrees:
-        stack.append(subTree.root)
+    # Up to this point 'node.children' has been an array of nine possible child nodes in each direction.
+    # We change the meaning of 'node.children' to be the three possible children of the node in directions A,B,C within the subgraph
+    # For each subgraph, set the children of each node to be in the A,B,C node order
+    for graph in subgraphs:
+        stack = [graph.root]
         while stack:
             node = stack.pop()
-            nodeLabel = "node " + str(node.arrayIndex) + "\\n at (" + str(node.cx) + "," + str(node.cy) + ")"
-            if (node.isValidDestination):
-                color = "00BFFF"    # blue
-            else:
-                color = "F6C85F"    # yellow
-            WriteLine(dotFile, " node" + str(node.nodeIndex) + " [label=\"" + nodeLabel + "\",fillcolor=\"#" + color + "\",style=filled]")
-            line = "    node" + str(node.nodeIndex) + " -> "
-            for c in node.children:
-                if c != None:
-                    label = labelArray.get(c.directionFromParent, "Invalid input")
-                    line_end = "node" + str(c.nodeIndex) + " [label=\" " + label + "\" ];"
-                    stack.append(c)
-                    WriteLine(dotFile, line + line_end)
-    WriteLine(dotFile, "}")
+            node.children = [node.children[graph.A], node.children[graph.B], node.children[graph.C]]
+            for child in node.children:
+                if child:
+                    stack.append(child)
+    return subgraphs
 
-def DrawSubTrees3(subTrees, dotFile):
-    WriteLine(dotFile, "digraph tree {")
+def ReorderForSymmetry(subgraphs):
+    # Re-order children of subgraphs[0] for symmetry
+    temp = subgraphs[0].A
+    subgraphs[0].A = subgraphs[0].C
+    subgraphs[0].C = subgraphs[0].B
+    subgraphs[0].B = temp
 
-    stack = []
-
-    for subTree in subTrees:
-        stack.append(subTree.root)
-        while stack:
-            node = stack.pop()
-            nodeLabel = "node " + str(node.arrayIndex)
-            if (node.isValidDestination):
-                color = "00BFFF"    # blue
-            else:
-                color = "F6C85F"    # yellow
-            WriteLine(dotFile, " node" + str(node.nodeIndex) + " [label=\"" + nodeLabel + "\",fillcolor=\"#" + color + "\",style=filled]")
-            line = "    node" + str(node.nodeIndex) + " -> "
-            foundChildIndex = 0
-            for c in node.children:
-                if c != None:
-                    if c.directionFromParent == subTree.A:
-                        foundChildIndex = 0
-                    elif c.directionFromParent == subTree.B:
-                        foundChildIndex = 1
-                    elif c.directionFromParent == subTree.C:
-                        foundChildIndex = 2
-
-                    label = "ABC"[foundChildIndex]
-                    line_end = "node" + str(c.nodeIndex) + " [label=\" " + label + "\" ];"
-                    stack.append(c)
-                    WriteLine(dotFile, line + line_end)
-                    foundChildIndex += 1
-    WriteLine(dotFile, "}")
-
-class SubTree:
-    A = -1
-    B = -1
-    C = -1
-    root = None
-
-    def __init__(self, a,b,c,root):
-        self.A = a
-        self.B = b
-        self.C = c
-        self.root = root
-
-
-centreX = gridWidth // 2
-centreY = gridHeight // 2
-
-# Draw all lines, creating a tree of nodes
-root = Node(0, 0, 0, 0)
-
-root.isValidDestination = True
-pixels = Grid()
-
-pic = ""
-for y in range(0,gridHeight):
-    line = "\n" * gridHeight
-    for x in range(0,gridWidth):
-        pixels.Clear()
-        pixels.DrawLine(centreX,centreY,x,y,False)
-        onePic = pixels.Show()
-
-        newLine = ""
-        for myx,myy in zip(line.splitlines(),onePic.splitlines()):
-            newLine += myx + " " + myy + '\n'
-        line = newLine
-
-    pic += line + "\n"
-
-# Mirror vertically for the correct orientation...
-lines = pic.split("\n")
-pic = "\n".join(lines[::-1])
-
-print(pic)
-
-# Renumber nodes in breadth first search order
-queue = [root]
-index = 0
-while queue:
-    node = queue[0]
-    queue = queue[1:]
-    node.nodeIndex = index
-    for c in node.children:
-        if c:
-            queue.append(c)
-    index += 1
-
-# Create subtrees
-subTrees = []
-
-for subRoot in root.children:
-    if subRoot:
-        subRoot.parent = None
-        childIndexes = []
-        for i in range(0,9):
-            if subRoot.children[i]:
-                direction = subRoot.children.index(subRoot.children[i])
-                childIndexes.append(direction)
-
-        # Three directions are possible: A,B,C
-        subTrees.append(SubTree(childIndexes[0],childIndexes[1],childIndexes[2],subRoot))
-
-# Set the children of each node to be in the A,B,C node order
-for subTree in subTrees:
-    stack = [subTree.root]
-    while stack:
-        node = stack.pop()
-        node.children = [node.children[subTree.A], node.children[subTree.B], node.children[subTree.C]]
-        for c in node.children:
-            if c:
-                stack.append(c)
-
-# Re-order children of subTrees[0] for symmetry
-temp = subTrees[0].A
-subTrees[0].A = subTrees[0].C
-subTrees[0].C = subTrees[0].B
-subTrees[0].B = temp
-
-# reorder children
-stack = [subTrees[0].root]
-while stack:
-    node = stack.pop()
-    node.children = [node.children[2], node.children[0], node.children[1]]
-    for c in node.children:
-        if c:
-            stack.append(c)
-
-# Re-order children of subTrees[7] for symmetry
-for i in range(0,2):
-    temp = subTrees[7].A
-    subTrees[7].A = subTrees[7].C
-    subTrees[7].C = subTrees[7].B
-    subTrees[7].B = temp
-
-    stack = [subTrees[7].root]
+    # reorder children
+    stack = [subgraphs[0].root]
     while stack:
         node = stack.pop()
         node.children = [node.children[2], node.children[0], node.children[1]]
-        for c in node.children:
-            if c:
-                stack.append(c)
+        for child in node.children:
+            if child:
+                stack.append(child)
 
-# Show directions for each subtree
-#for subTree in subTrees:
-#    print(vars(subTree))
+    # Re-order children of subgraphs[7] for symmetry
+    for i in range(0,2):    # twice
+        temp = subgraphs[7].A
+        subgraphs[7].A = subgraphs[7].C
+        subgraphs[7].C = subgraphs[7].B
+        subgraphs[7].B = temp
 
-# Initialise array indexes
-nodeArray = []
-queue = []
-for subTree in subTrees:
-    # Set array index of each node (in breadth first search order)
-    queue.append(subTree.root)
+        stack = [subgraphs[7].root]
+        while stack:
+            node = stack.pop()
+            node.children = [node.children[2], node.children[0], node.children[1]]
+            for child in node.children:
+                if child:
+                    stack.append(child)
+    return subgraphs
 
-i = 0
-while queue:
-    node = queue[0]
-    queue = queue[1:]
-    nodeArray.append(node)
-    node.arrayIndex = i
-    i += 1
-    for c in node.children:
-        if c:
-            queue.append(c)
+def CreateNodeArrayFromSubgraphs(subgraphs):
+    nodeArray = []
+    queue = []
+    for graph in subgraphs:
+        # add each graph's root to the queue
+        queue.append(graph.root)
 
+    while queue:
+        node = queue[0]
+        queue = queue[1:]
+        nodeArray.append(node)
+        for child in node.children:
+            if child:
+                queue.append(child)
+
+    # Number all nodes in array order
+    i = 0
+    for node in nodeArray:
+        node.nodeIndex = i
+        i += 1
+
+    return nodeArray
+
+# Create the root of a new tree
+root = Node(0, 0, 0, 0)
+root.isValidDestination = True
+
+# Render all straight lines, adding nodes to the tree as we go
+pixels = grid.Grid(root)
+pixels.DrawAllLines(root, True)
+
+# Number all nodes in breadth first search order
+Node.SetNodeIndices([root])
 
 # Output tree
 with open('build/line_data.dot', 'w') as dotFile:
-    DrawTree(dotFile)
+    dot_writer.DrawTree(dotFile, root)
 
-with open('build/subtrees.dot', 'w') as dotFile:
-    DrawSubTrees(subTrees, dotFile)
+# Create graphs (initially they are trees) from the children of the root
+subgraphs = CreateSubgraphs(root)
 
-# Just keep the first three subtrees
-threeSubTrees = subTrees[0:3]
+# Make sure the directions are in a nice symmetrical order
+subgraphs = ReorderForSymmetry(subgraphs)
+
+# Create nodearray from subgraphs
+nodeArray = CreateNodeArrayFromSubgraphs(subgraphs)
+
+with open('build/subgraphs.dot', 'w') as dotFile:
+    dot_writer.DrawSubgraphs(subgraphs, dotFile)
+
+# Just keep the first three subgraphs (the unique ones)
+threesubgraphs = subgraphs[0:3]
+
+# Create a node array from the subgraphs in breadth first order
+nodeArray = CreateNodeArrayFromSubgraphs(threesubgraphs)
+
+# TODO: Hack away at the tree
+# nodeArray[4].children[2] = nodeArray[13]
 
 
-# Set array index of each node (in breadth first search order)
-nodeArray = []
-queue = [threeSubTrees[0].root, threeSubTrees[1].root, threeSubTrees[2].root]
-i = 0
-while queue:
-    node = queue[0]
-    queue = queue[1:]
-    nodeArray.append(node)
-    node.arrayIndex = i
-    i += 1
-    for c in node.children:
-        if c:
-            queue.append(c)
-
-# Output subtree dot file
-with open('build/subtrees3.dot', 'w') as dotFile:
-    DrawSubTrees3(threeSubTrees, dotFile)
+# Output subgraph dot file
+with open('build/subgraphs3.dot', 'w') as dotFile:
+    dot_writer.DrawSubgraphs3(threesubgraphs, dotFile)
 
 # write second ASM file (storing the data in bytes)
 with open('asm/linedata.a', 'w') as f:
@@ -524,39 +186,39 @@ with open('asm/linedata.a', 'w') as f:
     f.write("; direction as index, e.g. initial direction 0 (i.e. index 0) has possible\n")
     f.write("; future directions (3,0,1) stored in the three arrays below.\n")
     f.write('direction0\n')
-    subTreeIndex = 0
+    graphIndex = 0
     f.write('   !byte ')
-    for subTree in subTrees:
-        if subTreeIndex != 0:
+    for graph in subgraphs:
+        if graphIndex != 0:
             f.write(',')
-        f.write(str(subTree.A))
-        if subTreeIndex == 3:
+        f.write(str(graph.A))
+        if graphIndex == 3:
             f.write(',4')
-        subTreeIndex += 1
+        graphIndex += 1
     f.write('\n')
 
     f.write('direction1\n')
-    subTreeIndex = 0
+    graphIndex = 0
     f.write('   !byte ')
-    for subTree in subTrees:
-        if subTreeIndex != 0:
+    for graph in subgraphs:
+        if graphIndex != 0:
             f.write(',')
-        f.write(str(subTree.B))
-        if subTreeIndex == 3:
+        f.write(str(graph.B))
+        if graphIndex == 3:
             f.write(',4')
-        subTreeIndex += 1
+        graphIndex += 1
     f.write('\n')
 
     f.write('direction2\n')
-    subTreeIndex = 0
+    graphIndex = 0
     f.write('   !byte ')
-    for subTree in subTrees:
-        if subTreeIndex != 0:
+    for graph in subgraphs:
+        if graphIndex != 0:
             f.write(',')
-        f.write(str(subTree.C))
-        if subTreeIndex == 3:
+        f.write(str(graph.C))
+        if graphIndex == 3:
             f.write(',4')
-        subTreeIndex += 1
+        graphIndex += 1
     f.write('\n\n')
 
     f.write("; Each node below the root node is stored in the following arrays.\n")
@@ -565,20 +227,20 @@ with open('asm/linedata.a', 'w') as f:
     f.write("; stored in the top bit.\n")
     for i in range(0,3):
         f.write('child' + str(i) + '\n')
-        startWriteByteData()
+        asm_writer.start()
         for node in nodeArray:
             if node.children[i]:
                 myIndex = nodeArray.index(node.children[i])
             else:
                 myIndex = 255
-            writeByteData(myIndex, f)
-        endWriteByteData(f)
+            asm_writer.writeByte(myIndex, f)
+        asm_writer.end(f)
 
     f.write('isBlue\n')
-    startWriteByteData()
+    asm_writer.start()
     for node in nodeArray:
         myIndex = 0
         if node.isValidDestination:
             myIndex = 128
-        writeByteData(myIndex, f)
-    endWriteByteData(f)
+        asm_writer.writeByte(myIndex, f)
+    asm_writer.end(f)
