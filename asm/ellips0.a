@@ -105,36 +105,12 @@ draw_ellipse
 
 fory_loop
     ; first add_point
-    lda #x1 - variables_start           ;
-    ldx #ox1 - variables_start          ;
-    ldy #increment - variables_start    ;
-    jsr subtract16                      ; increment=X1-OX1
-
-    ldx #increment - variables_start    ;
-    jsr sgn16                           ; increment=SGN(increment)
-
-    lda increment                       ;
-    clc                                 ;
-    adc #7                              ; A = 7 + sgn(x1-ox1)      (i.e. the direction)
     ldy #x1 - variables_start           ; Y is the x coordinate to use
     jsr add_point                       ;
 
-
     ; second add_point
-    lda #x2 - variables_start           ;
-    ldx #ox2 - variables_start          ;
-    ldy #increment - variables_start    ;
-    jsr subtract16                      ; increment=X2-OX2
-
-    ldx #increment - variables_start    ;
-    jsr sgn16                           ; increment=SGN(increment)
-
-    lda increment                       ;
-    clc                                 ;
-    adc #7                              ; A = 7 + sgn(x2-ox2)      (i.e. the direction)
     ldy #x2 - variables_start           ; Y is the x coordinate to use
     jsr add_point                       ;
-
 
     ldx #x1 - variables_start           ;
     ldy #ox1 - variables_start          ;
@@ -213,9 +189,6 @@ post_loop1
     beq done_first_half                 ; if (x == x2) then goto done1
 
 +
-    lda #4                              ;
-    clc                                 ;
-    adc increment                       ; A = 4 + increment       (i.e. the direction)
     ldy #x - variables_start            ; Y is the x coordinate to use
     jsr add_point                       ;
 
