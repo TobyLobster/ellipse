@@ -1,3 +1,5 @@
 build/
 disk/
 *.ssd.dsk
+__pycache__
+/not_for_submission/**
