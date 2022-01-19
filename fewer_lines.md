@@ -1,8 +1,16 @@
 ## Drawing Ellipses With Fewer Straight Lines
 
-See this code running [here](http://bbc.godbolt.org/?autoboot&disc=https://raw.githubusercontent.com/TobyLobster/ellipse/diagonals/ELLIPS2.SSD).
+We attempt to optimise the runtime performance for drawing an ellipse by drawing straight lines while maintaining a pixel perfect shape.
 
-We are attempting to optimise the runtime for drawing an ellipse. To reduce the number of straight lines being drawn while retaining the pixel perfect ellipse shape we pre-calculate a static tree structure that encodes all possible straight line renderings from a fixed starting point. To limit the size of the tree, we limit the length of the lines.
+See code running on a BBC Micro:
+
+| Version               | Time in centiseconds | Percentage  time | See it execute |
+| --------------------- | :------------------: | ---- | --- |
+| Drawing individual pixels | 70 | 100% (baseline) | [here](http://bbc.godbolt.org/?autoboot&disc=https://raw.githubusercontent.com/TobyLobster/ellipse/diagonals/ELLIPS0.SSD) |
+| Optimised for horizontal and vertical lines | 60 | 86% | [here](http://bbc.godbolt.org/?autoboot&disc=https://raw.githubusercontent.com/TobyLobster/ellipse/diagonals/ELLIPS1.SSD) |
+| Optimised for small straight lines (as described below) | 48 | 69% | [here](http://bbc.godbolt.org/?autoboot&disc=https://raw.githubusercontent.com/TobyLobster/ellipse/diagonals/ELLIPS2.SSD) |
+
+We pre-calculate a static tree structure that encodes all possible straight line renderings from a fixed starting point. To limit the size of the tree, we limit the length of the lines.
 
 We have an existing algorithm that traces the pixels of an ellipse. Instead of drawing each pixel, we call a new routine (add_point).
 
@@ -58,15 +66,15 @@ Where A,B,C are directions determined by the initial direction:
 
 | Initial direction | Subtree Root  | A | B | C |
 | :---------------: | :-----------: | - | - | - |
-| 0                 | node 0 		| 3 | 0 | 1 |
-| 1                 | node 1  		| 0 | 1 | 2 |
-| 2                 | node 2  		| 1 | 2 | 5 |
-| 3                 | node 1  		| 0 | 3 | 6 |
-| 4                 | -      		| - | - | - |
-| 5                 | node 0  		| 2 | 5 | 8 |
-| 6                 | node 2  		| 3 | 6 | 7 |
-| 7                 | node 0  		| 6 | 7 | 8 |
-| 8                 | node 1  		| 7 | 8 | 5 |
+| 0                 | node 0        | 3 | 0 | 1 |
+| 1                 | node 1        | 0 | 1 | 2 |
+| 2                 | node 2        | 1 | 2 | 5 |
+| 3                 | node 1        | 0 | 3 | 6 |
+| 4                 | -             | - | - | - |
+| 5                 | node 0        | 2 | 5 | 8 |
+| 6                 | node 2        | 3 | 6 | 7 |
+| 7                 | node 0        | 6 | 7 | 8 |
+| 8                 | node 1        | 7 | 8 | 5 |
 
 ### Implementation details
 A python script (asm/create_table.py) is used to create the tree and output the appropriate data (asm/linedata.a). The runtime code (asm/ellips2.a) is the main file to assemble.
