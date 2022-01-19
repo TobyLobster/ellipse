@@ -2,7 +2,7 @@
 
 We attempt to optimise the runtime performance for drawing an ellipse by drawing straight lines while maintaining a pixel perfect shape.
 
-See results running on a BBC Micro with a 6502 CPU:
+See results running on a BBC Micro with a 2MHz 6502 CPU:
 
 | Version               | Time in centiseconds | Percentage  time | Execute in 6502 | Execute in BASIC |
 | --------------------- | :------------------: | ---- | ---- | ---- |

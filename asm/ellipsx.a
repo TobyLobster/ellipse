@@ -1,0 +1,176 @@
+OSWRCH = $FFEE
+
+* = $2400
+
+; ***************************************************************************************
+main
+    ldx #0                              ;
+loop
+    lda dataX,X                         ;
+    sta plot_block + 3                  ;
+    lda dataX + 1,X                     ;
+    sta plot_block + 2                  ;
+
+    lda dataY,x                         ;
+    sta plot_block + 1                  ;
+    lda dataY + 1,x                     ;
+    sta plot_block + 0                  ;
+
+    ldy #5                              ;
+-
+    lda plot_block,y                    ;
+    jsr OSWRCH                          ;
+    dey                                 ;
+    bpl -                               ;
+
+    lda #5                              ;
+    sta plot_type                       ;
+    inx                                 ;
+    inx                                 ;
+    cpx #66*2                           ;
+    bne loop                            ;
+    rts                                 ;
+
+; ***************************************************************************************
+plot_block
+    !word 0                             ; NOTE: These bytes are reversed
+    !word 0                             ; when sending to the VDU drivers
+plot_type
+    !byte 4                             ; PLOT type
+    !byte 25                            ; VDU 25 for PLOT
+
+; ***************************************************************************************
+dataX
+    !word 218 * 4
+    !word 214 * 4
+    !word 212 * 4
+    !word 211 * 4
+    !word 209 * 4
+    !word 206 * 4
+    !word 202 * 4
+    !word 198 * 4
+    !word 195 * 4
+    !word 193 * 4
+    !word 191 * 4
+    !word 189 * 4
+    !word 187 * 4
+    !word 178 * 4
+    !word 168 * 4
+    !word 162 * 4
+    !word 155 * 4
+    !word 145 * 4
+    !word 133 * 4
+    !word 127 * 4
+    !word 121 * 4
+    !word 112 * 4
+    !word 109 * 4
+    !word 105 * 4
+    !word 104 * 4
+    !word 103 * 4
+    !word 101 * 4
+    !word 100 * 4
+    !word 99 * 4
+    !word 99 * 4
+    !word 100 * 4
+    !word 101 * 4
+    !word 102 * 4
+    !word 104 * 4
+    !word 105 * 4
+    !word 108 * 4
+    !word 111 * 4
+    !word 114 * 4
+    !word 122 * 4
+    !word 124 * 4
+    !word 127 * 4
+    !word 128 * 4
+    !word 131 * 4
+    !word 134 * 4
+    !word 137 * 4
+    !word 147 * 4
+    !word 152 * 4
+    !word 155 * 4
+    !word 157 * 4
+    !word 167 * 4
+    !word 169 * 4
+    !word 178 * 4
+    !word 187 * 4
+    !word 193 * 4
+    !word 199 * 4
+    !word 208 * 4
+    !word 210 * 4
+    !word 215 * 4
+    !word 218 * 4
+    !word 219 * 4
+    !word 220 * 4
+    !word 221 * 4
+    !word 221 * 4
+    !word 220 * 4
+    !word 219 * 4
+    !word 218 * 4
+dataY
+    !word 128 * 4
+    !word 145 * 4
+    !word 152 * 4
+    !word 154 * 4
+    !word 160 * 4
+    !word 166 * 4
+    !word 174 * 4
+    !word 182 * 4
+    !word 187 * 4
+    !word 190 * 4
+    !word 193 * 4
+    !word 196 * 4
+    !word 198 * 4
+    !word 209 * 4
+    !word 218 * 4
+    !word 222 * 4
+    !word 225 * 4
+    !word 228 * 4
+    !word 228 * 4
+    !word 226 * 4
+    !word 222 * 4
+    !word 213 * 4
+    !word 208 * 4
+    !word 199 * 4
+    !word 196 * 4
+    !word 194 * 4
+    !word 185 * 4
+    !word 180 * 4
+    !word 171 * 4
+    !word 145 * 4
+    !word 137 * 4
+    !word 131 * 4
+    !word 126 * 4
+    !word 118 * 4
+    !word 114 * 4
+    !word 104 * 4
+    !word 97 * 4
+    !word 90 * 4
+    !word 74 * 4
+    !word 70 * 4
+    !word 66 * 4
+    !word 64 * 4
+    !word 60 * 4
+    !word 56 * 4
+    !word 53 * 4
+    !word 42 * 4
+    !word 38 * 4
+    !word 36 * 4
+    !word 35 * 4
+    !word 30 * 4
+    !word 29 * 4
+    !word 28 * 4
+    !word 28 * 4
+    !word 30 * 4
+    !word 34 * 4
+    !word 43 * 4
+    !word 46 * 4
+    !word 56 * 4
+    !word 66 * 4
+    !word 70 * 4
+    !word 76 * 4
+    !word 84 * 4
+    !word 111 * 4
+    !word 119 * 4
+    !word 125 * 4
+    !word 127 * 4
