@@ -6,7 +6,7 @@ To reduce the number of straight lines being drawn while retaining the pixel per
 
 We are attempting to optimise the runtime for drawing an ellipse. We have an algorithm that traces the pixels of an ellipse. Instead of drawing each pixel, we call a new routine.
 
-Starting at the root of the tree, the routine will move a pointer from one node of the tree to one of it's children (if possible) depending on the direction taken. If we run out of tree (the latest direction does not lead to a new child node), then we draw the longest straight line found in the tree so far and continue the process starting at the root of the tree again.
+Starting at the root of the tree, the routine will move a pointer from one node of the tree to one of its children (if possible) depending on the direction taken. If we run out of tree (the latest direction does not lead to a new child node), then we draw the longest straight line found in the tree so far and continue the process starting at the root of the tree again.
 
 ### Making the Tree
 In particular, consider a 13x13 grid of pixels with origin at the centre. Coordinates
@@ -56,9 +56,9 @@ By symmetry, we see that only the first three subtrees are unique. The remainder
 
 Where A,B,C are directions determined by the initial direction:
 
-| Initial direction | Subtree Root | A | B | C |
-| :---------------: | :----------: | - | - | - |
-| 0                 | node 0  		| 3 | 0 | 1 |
+| Initial direction | Subtree Root  | A | B | C |
+| :---------------: | :-----------: | - | - | - |
+| 0                 | node 0 		| 3 | 0 | 1 |
 | 1                 | node 1  		| 0 | 1 | 2 |
 | 2                 | node 2  		| 1 | 2 | 5 |
 | 3                 | node 1  		| 0 | 3 | 6 |
@@ -79,9 +79,9 @@ For speed, we store these values in four separate arrays of bytes 'child0', 'chi
 
 The root is a special case as is has eight children, which is reduced to three due to symmetry as noted above. We store a mapping from the eight possible initial directions to the root of one of the three unique subtrees. We also store the three possible continuing directions for the subtree for each initial direction.
 
-In the runtime, at each iteration we move from a node to it's child. If we run out of tree (the latest direction does not lead to a new child node), then we (a) draw the longest straight line so far encountered (from the root node to the last blue node we visited), and (b) replay any remaining yellow node moves to the new routine (recursively).
+In the runtime, at each iteration we move from a node to its child. If we run out of tree (the latest direction does not lead to a new child node), then we (a) draw the longest straight line so far encountered (from the root node to the last blue node we visited), and (b) replay any remaining yellow node moves to the new routine (recursively).
 
-Because our ellipse is drawn in four quadrants, each quadrant has it's own set of state  for traversing the tree.
+Because our ellipse is drawn in four quadrants, each quadrant has its own set of state  for traversing the tree.
 
 ### Limitations
 Different operating systems can render straight lines in slightly different ways. This will affect the data produced. So the data is to some degree OS specific when relying on an OS specific line drawing routine.
@@ -90,7 +90,7 @@ Different operating systems can render straight lines in slightly different ways
 This technique is not just useful for ellipses, but can be used with any shape that's drawn using adjacent pixels.
 
 #### Optimisations
-Large or squashed ellipses can have long sections of purely vertical or horizontal lines. At the moment these lines are encoded into multiple lines of length 7. It is possible to adjust the tree data so that e.g. the child of node along a vertical line can point to it's parent. This turns our tree into a graph that can encode vertical and horizontal lines of any length. Similarly for diagonal (45 degree) lines and perhaps some other regular lines too.
+Large or squashed ellipses can have long sections of purely vertical or horizontal lines. At the moment these lines are encoded into multiple lines of length 7. It is possible to adjust the tree data so that e.g. the child of node along a vertical line can point to its parent. This turns our tree into a graph that can encode vertical and horizontal lines of any length. Similarly for diagonal (45 degree) lines and perhaps some other regular lines too.
 
 We can coalesce identical parts of the tree to save memory.
 
