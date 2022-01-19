@@ -60,7 +60,7 @@ The root has eight children, corresponding to the eight directions that can be t
 
 By symmetry, we see that only the first three subtrees are unique. The remainder of the subtrees are identical to one of the first three, with suitable reordering of the directions. So we get three subtrees:
 
-![Reduced tree](subtrees3.png)
+![Reduced tree](subgraphs3.png)
 
 Where A,B,C are directions determined by the initial direction:
 
