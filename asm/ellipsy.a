@@ -1,0 +1,818 @@
+OSWRCH = $ffee
+OSWORD = $fff1
+
+; For line drawing:
+x1      = $70
+y1      = $71
+x2      = $72
+y2      = $73
+ysav    = $74
+swap    = $75
+p       = $76
+q       = $77
+r       = $78
+s       = $79
+sc      = $7a              ; Screen address (low byte)
+sch     = $7b              ; Screen address (high byte)
+
+* = $2400
+
+; ***************************************************************************************
+main
+    jsr set_mode                        ;
+    jsr reset_timer                     ;
+    ldy #0                              ;
+loop
+    lda dataX,y                         ;
+    sta x1                              ;
+    lda dataY,y                         ;
+    sta y1                              ;
+
+    lda dataX + 1,y                     ;
+    sta x2                              ;
+    lda dataY + 1,y                     ;
+    sta y2                              ;
+
+    jsr loin                            ;
+
+    iny                                 ;
+    cpy #65                             ;
+    bne loop                            ;
+    rts                                 ;
+
+offsetX = -64
+
+; ***************************************************************************************
+dataX
+    !byte 218 + offsetX
+    !byte 214 + offsetX
+    !byte 212 + offsetX
+    !byte 211 + offsetX
+    !byte 209 + offsetX
+    !byte 206 + offsetX
+    !byte 202 + offsetX
+    !byte 198 + offsetX
+    !byte 195 + offsetX
+    !byte 193 + offsetX
+    !byte 191 + offsetX
+    !byte 189 + offsetX
+    !byte 187 + offsetX
+    !byte 178 + offsetX
+    !byte 168 + offsetX
+    !byte 162 + offsetX
+    !byte 155 + offsetX
+    !byte 145 + offsetX
+    !byte 133 + offsetX
+    !byte 127 + offsetX
+    !byte 121 + offsetX
+    !byte 112 + offsetX
+    !byte 109 + offsetX
+    !byte 105 + offsetX
+    !byte 104 + offsetX
+    !byte 103 + offsetX
+    !byte 101 + offsetX
+    !byte 100 + offsetX
+    !byte 99 + offsetX
+    !byte 99 + offsetX
+    !byte 100 + offsetX
+    !byte 101 + offsetX
+    !byte 102 + offsetX
+    !byte 104 + offsetX
+    !byte 105 + offsetX
+    !byte 108 + offsetX
+    !byte 111 + offsetX
+    !byte 114 + offsetX
+    !byte 122 + offsetX
+    !byte 124 + offsetX
+    !byte 127 + offsetX
+    !byte 128 + offsetX
+    !byte 131 + offsetX
+    !byte 134 + offsetX
+    !byte 137 + offsetX
+    !byte 147 + offsetX
+    !byte 152 + offsetX
+    !byte 155 + offsetX
+    !byte 157 + offsetX
+    !byte 167 + offsetX
+    !byte 169 + offsetX
+    !byte 178 + offsetX
+    !byte 187 + offsetX
+    !byte 193 + offsetX
+    !byte 199 + offsetX
+    !byte 208 + offsetX
+    !byte 210 + offsetX
+    !byte 215 + offsetX
+    !byte 218 + offsetX
+    !byte 219 + offsetX
+    !byte 220 + offsetX
+    !byte 221 + offsetX
+    !byte 221 + offsetX
+    !byte 220 + offsetX
+    !byte 219 + offsetX
+    !byte 218 + offsetX
+dataY
+    !byte 255 - 128
+    !byte 255 - 145
+    !byte 255 - 152
+    !byte 255 - 154
+    !byte 255 - 160
+    !byte 255 - 166
+    !byte 255 - 174
+    !byte 255 - 182
+    !byte 255 - 187
+    !byte 255 - 190
+    !byte 255 - 193
+    !byte 255 - 196
+    !byte 255 - 198
+    !byte 255 - 209
+    !byte 255 - 218
+    !byte 255 - 222
+    !byte 255 - 225
+    !byte 255 - 228
+    !byte 255 - 228
+    !byte 255 - 226
+    !byte 255 - 222
+    !byte 255 - 213
+    !byte 255 - 208
+    !byte 255 - 199
+    !byte 255 - 196
+    !byte 255 - 194
+    !byte 255 - 185
+    !byte 255 - 180
+    !byte 255 - 171
+    !byte 255 - 145
+    !byte 255 - 137
+    !byte 255 - 131
+    !byte 255 - 126
+    !byte 255 - 118
+    !byte 255 - 114
+    !byte 255 - 104
+    !byte 255 - 97
+    !byte 255 - 90
+    !byte 255 - 74
+    !byte 255 - 70
+    !byte 255 - 66
+    !byte 255 - 64
+    !byte 255 - 60
+    !byte 255 - 56
+    !byte 255 - 53
+    !byte 255 - 42
+    !byte 255 - 38
+    !byte 255 - 36
+    !byte 255 - 35
+    !byte 255 - 30
+    !byte 255 - 29
+    !byte 255 - 28
+    !byte 255 - 28
+    !byte 255 - 30
+    !byte 255 - 34
+    !byte 255 - 43
+    !byte 255 - 46
+    !byte 255 - 56
+    !byte 255 - 66
+    !byte 255 - 70
+    !byte 255 - 76
+    !byte 255 - 84
+    !byte 255 - 111
+    !byte 255 - 119
+    !byte 255 - 125
+    !byte 255 - 127
+
+
+twos
+    !byte %10000000
+    !byte %01000000
+    !byte %00100000
+    !byte %00010000
+    !byte %00001000
+    !byte %00000100
+    !byte %00000010
+    !byte %00000001
+
+; ***************************************************************************************
+; Line drawing (from ELITE, see https://www.bbcelite.com/cassette/main/subroutine/loin_part_1_of_7.html)
+;
+; On Entry:
+;   x1,y1,x2,y2 are the pixel coordinates of the endpoints of the line
+;
+; On Exit:
+;   Y is preserved
+;
+; ***************************************************************************************
+loin
+    sty ysav               ; Store Y into YSAV, so we can preserve it across the
+                           ; call to this subroutine
+
+    lda #128               ; Set S = 128, which is the starting point for the
+    sta s                  ; slope error (representing half a pixel)
+
+    asl                    ; Set SWAP = 0, as %10000000 << 1 = 0
+    sta swap
+
+    lda x2                 ; Set A = X2 - X1
+    sbc x1                 ;       = delta_x
+                           ;
+                           ; This subtraction works as the ASL A above sets the C
+                           ; flag
+
+    bcs li1                ; If X2 > X1 then A is already positive and we can skip
+                           ; the next three instructions
+
+    eor #%11111111         ; Negate the result in A by flipping all the bits and
+    adc #1                 ; adding 1, i.e. using two's complement to make it
+                           ; positive
+
+    sec                    ; Set the C flag, ready for the subtraction below
+
+li1
+
+    sta p                  ; Store A in P, so P = |X2 - X1|, or |delta_x|
+
+    lda y2                 ; Set A = Y2 - Y1
+    sbc y1                 ;       = delta_y
+                           ;
+                           ; This subtraction works as we either set the C flag
+                           ; above, or we skipped that SEC instruction with a BCS
+
+    bcs li2                ; If Y2 > Y1 then A is already positive and we can skip
+                           ; the next two instructions
+
+    eor #%11111111         ; Negate the result in A by flipping all the bits and
+    adc #1                 ; adding 1, i.e. using two's complement to make it
+                           ; positive
+
+li2
+
+    sta q                  ; Store A in Q, so Q = |Y2 - Y1|, or |delta_y|
+
+    cmp p                  ; If Q < P, jump to STPX to step along the x-axis, as
+    bcc stpx               ; the line is closer to being horizontal than vertical
+
+    jmp stpy               ; Otherwise Q >= P so jump to STPY to step along the
+                           ; y-axis, as the line is closer to being vertical than
+                           ; horizontal
+stpx
+
+    ldx x1                 ; Set X = X1
+
+    cpx x2                 ; If X1 < X2, jump down to LI3, as the coordinates are
+    bcc li3                ; already in the order that we want
+
+    dec swap               ; Otherwise decrement SWAP from 0 to $FF, to denote that
+                           ; we are swapping the coordinates around
+
+    lda x2                 ; Swap the values of X1 and X2
+    sta x1
+    stx x2
+
+    tax                    ; Set X = X1
+
+    lda y2                 ; Swap the values of Y1 and Y2
+    ldy y1
+    sta y1
+    sty y2
+
+li3
+
+                           ; By this point we know the line is horizontal-ish and
+                           ; X1 < X2, so we're going from left to right as we go
+                           ; from X1 to X2
+
+    lda y1                 ; Set A = Y1 / 8, so A now contains the character row
+    lsr                    ; that will contain our horizontal line
+    lsr
+    lsr
+
+    ora #$60               ; As A < 32, this effectively adds $60 to A, which gives
+                           ; us the screen address of the character row (as each
+                           ; character row takes up 256 bytes, and the first
+                           ; character row is at screen address $6000, or page $60)
+
+    sta sch                ; Store the page number of the character row in SCH, so
+                           ; the high byte of SC is set correctly for drawing the
+                           ; start of our line
+
+    lda y1                 ; Set Y = Y1 mod 8, which is the pixel row within the
+    and #7                 ; character block at which we want to draw the start of
+    tay                    ; our line (as each character block has 8 rows)
+
+    txa                    ; Set A = bits 3-7 of X1
+    and #%11111000
+
+    sta sc                 ; Store this value in SC, so SC(1 0) now contains the
+                           ; screen address of the far left end (x-coordinate = 0)
+                           ; of the horizontal pixel row that we want to draw the
+                           ; start of our line on
+
+    txa                    ; Set X = X1 mod 8, which is the horizontal pixel number
+    and #7                 ; within the character block where the line starts (as
+    tax                    ; each pixel line in the character block is 8 pixels
+                           ; wide)
+
+    lda twos,x             ; Fetch a 1-pixel byte from TWOS where pixel X is set,
+    sta r                  ; and store it in R
+
+                           ; The following calculates:
+                           ;
+                           ;   Q = Q / P
+                           ;     = |delta_y| / |delta_x|
+                           ;
+                           ; using the same shift-and-subtract algorithm that's
+                           ; documented in TIS2
+
+    lda q                  ; Set A = |delta_y|
+
+    ldx #%11111110         ; Set Q to have bits 1-7 set, so we can rotate through 7
+    stx q                  ; loop iterations, getting a 1 each time, and then
+                           ; getting a 0 on the 8th iteration... and we can also
+                           ; use Q to catch our result bits into bit 0 each time
+
+lil1
+
+    asl                    ; Shift A to the left
+
+    bcs li4                ; If bit 7 of A was set, then jump straight to the
+                           ; subtraction
+
+    cmp p                  ; If A < P, skip the following subtraction
+    bcc li5
+
+li4
+
+    sbc p                  ; A >= P, so set A = A - P
+
+    sec                    ; Set the C flag to rotate into the result in Q
+
+li5
+
+    rol q                  ; Rotate the counter in Q to the left, and catch the
+                           ; result bit into bit 0 (which will be a 0 if we didn't
+                           ; do the subtraction, or 1 if we did)
+
+    bcs lil1               ; If we still have set bits in Q, loop back to TIL2 to
+                           ; do the next iteration of 7
+
+                           ; We now have:
+                           ;
+                           ;   Q = A / P
+                           ;     = |delta_y| / |delta_x|
+                           ;
+                           ; and the C flag is clear
+
+    ldx p                  ; Set X = P + 1
+    inx                    ;       = |delta_x| + 1
+                           ;
+                           ; We add 1 so we can skip the first pixel plot if the
+                           ; line is being drawn with swapped coordinates
+
+    lda y2                 ; Set A = Y2 - Y1 - 1 (as the C flag is clear following
+    sbc y1                 ; the above division)
+
+    bcs down               ; If Y2 >= Y1 - 1 then jump to DOWN, as we need to draw
+                           ; the line to the right and down
+    lda swap               ; If SWAP > 0 then we swapped the coordinates above, so
+    bne li6                ; jump down to LI6 to skip plotting the first pixel
+
+    dex                    ; Decrement the counter in X because we're about to plot
+                           ; the first pixel
+
+lil2
+
+                           ; We now loop along the line from left to right, using X
+                           ; as a decreasing counter, and at each count we plot a
+                           ; single pixel using the pixel mask in R
+
+    lda r                  ; Fetch the pixel byte from R
+
+    eor (sc),y             ; Store R into screen memory at SC(1 0), using EOR
+    sta (sc),y             ; logic so it merges with whatever is already on-screen
+
+li6
+
+    lsr r                  ; Shift the single pixel in R to the right to step along
+                           ; the x-axis, so the next pixel we plot will be at the
+                           ; next x-coordinate along
+
+    bcc li7                ; If the pixel didn't fall out of the right end of R
+                           ; into the C flag, then jump to LI7
+
+    ror r                  ; Otherwise we need to move over to the next character
+                           ; block, so first rotate R right so the set C flag goes
+                           ; back into the left end, giving %10000000
+
+    lda sc                 ; Add 8 to SC, so SC(1 0) now points to the next
+    adc #8                 ; character along to the right
+    sta sc
+
+li7
+
+    lda s                  ; Set S = S + Q to update the slope error
+    adc q
+    sta s
+
+    bcc lic2               ; If the addition didn't overflow, jump to LIC2
+
+    dey                    ; Otherwise we just overflowed, so decrement Y to move
+                           ; to the pixel line above
+
+    bpl lic2               ; If Y is positive we are still within the same
+                           ; character block, so skip to LIC2
+
+    dec sch                ; Otherwise we need to move up into the character block
+    ldy #7                 ; above, so decrement the high byte of the screen
+                           ; address and set the pixel line to the last line in
+                           ; that character block
+
+lic2
+
+    dex                    ; Decrement the counter in X
+
+    bne lil2               ; If we haven't yet reached the right end of the line,
+                           ; loop back to LIL2 to plot the next pixel along
+
+    ldy ysav               ; Restore Y from YSAV, so that it's preserved
+
+    rts                    ; Return from the subroutine
+
+down
+
+    lda swap               ; If SWAP = 0 then we didn't swap the coordinates above,
+    beq li9                ; so jump down to LI9 to skip plotting the first pixel
+
+    dex                    ; Decrement the counter in X because we're about to plot
+                           ; the first pixel
+
+lil3
+
+                           ; We now loop along the line from left to right, using X
+                           ; as a decreasing counter, and at each count we plot a
+                           ; single pixel using the pixel mask in R
+
+    lda r                  ; Fetch the pixel byte from R
+
+    eor (sc),y             ; Store R into screen memory at SC(1 0), using EOR
+    sta (sc),y             ; logic so it merges with whatever is already on-screen
+
+li9
+
+    lsr r                  ; Shift the single pixel in R to the right to step along
+                           ; the x-axis, so the next pixel we plot will be at the
+                           ; next x-coordinate along
+
+    bcc li10               ; If the pixel didn't fall out of the right end of R
+                           ; into the C flag, then jump to LI10
+
+    ror r                  ; Otherwise we need to move over to the next character
+                           ; block, so first rotate R right so the set C flag goes
+                           ; back into the left end, giving %10000000
+
+    lda sc                 ; Add 8 to SC, so SC(1 0) now points to the next
+    adc #8                 ; character along to the right
+    sta sc
+
+li10
+
+    lda s                  ; Set S = S + Q to update the slope error
+    adc q
+    sta s
+
+    bcc lic3               ; If the addition didn't overflow, jump to LIC3
+
+    iny                    ; Otherwise we just overflowed, so increment Y to move
+                           ; to the pixel line below
+
+    cpy #8                 ; If Y < 8 we are still within the same character block,
+    bne lic3               ; so skip to LIC3
+
+    inc sch                ; Otherwise we need to move down into the character
+    ldy #0                 ; block below, so increment the high byte of the screen
+                           ; address and set the pixel line to the first line in
+                           ; that character block
+
+lic3
+
+    dex                    ; Decrement the counter in X
+
+    bne lil3               ; If we haven't yet reached the right end of the line,
+                           ; loop back to LIL3 to plot the next pixel along
+
+    ldy ysav               ; Restore Y from YSAV, so that it's preserved
+
+    rts                    ; Return from the subroutine
+
+stpy
+
+    ldy y1                 ; Set A = Y = Y1
+    tya
+
+    ldx x1                 ; Set X = X1
+
+    cpy y2                 ; If Y1 >= Y2, jump down to LI15, as the coordinates are
+    bcs li15               ; already in the order that we want
+
+    dec swap               ; Otherwise decrement SWAP from 0 to $FF, to denote that
+                           ; we are swapping the coordinates around
+
+    lda x2                 ; Swap the values of X1 and X2
+    sta x1
+    stx x2
+
+    tax                    ; Set X = X1
+
+    lda y2                 ; Swap the values of Y1 and Y2
+    sta y1
+    sty y2
+
+    tay                    ; Set Y = A = Y1
+
+li15
+
+                           ; By this point we know the line is vertical-ish and
+                           ; Y1 >= Y2, so we're going from top to bottom as we go
+                           ; from Y1 to Y2
+
+    lsr                    ; Set A = Y1 / 8, so A now contains the character row
+    lsr                    ; that will contain our horizontal line
+    lsr
+
+    ora #$60               ; As A < 32, this effectively adds $60 to A, which gives
+                           ; us the screen address of the character row (as each
+                           ; character row takes up 256 bytes, and the first
+                           ; character row is at screen address $6000, or page $60)
+
+    sta sch                ; Store the page number of the character row in SCH, so
+                           ; the high byte of SC is set correctly for drawing the
+                           ; start of our line
+
+    txa                    ; Set A = bits 3-7 of X1
+    and #%11111000
+
+    sta sc                 ; Store this value in SC, so SC(1 0) now contains the
+                           ; screen address of the far left end (x-coordinate = 0)
+                           ; of the horizontal pixel row that we want to draw the
+                           ; start of our line on
+
+    txa                    ; Set X = X1 mod 8, which is the horizontal pixel number
+    and #7                 ; within the character block where the line starts (as
+    tax                    ; each pixel line in the character block is 8 pixels
+                           ; wide)
+
+    lda twos,x             ; Fetch a 1-pixel byte from TWOS where pixel X is set,
+    sta r                  ; and store it in R
+
+    lda y1                 ; Set Y = Y1 mod 8, which is the pixel row within the
+    and #7                 ; character block at which we want to draw the start of
+    tay                    ; our line (as each character block has 8 rows)
+
+                           ; The following calculates:
+                           ;
+                           ;   P = P / Q
+                           ;     = |delta_x| / |delta_y|
+                           ;
+                           ; using the same shift-and-subtract algorithm
+                           ; documented in TIS2
+
+    lda p                  ; Set A = |delta_x|
+
+    ldx #1                 ; Set Q to have bits 1-7 clear, so we can rotate through
+    stx p                  ; 7 loop iterations, getting a 1 each time, and then
+                           ; getting a 1 on the 8th iteration... and we can also
+                           ; use P to catch our result bits into bit 0 each time
+
+lil4
+
+    asl                    ; Shift A to the left
+
+    bcs li13               ; If bit 7 of A was set, then jump straight to the
+                           ; subtraction
+
+    cmp q                  ; If A < Q, skip the following subtraction
+    bcc li14
+
+li13
+
+    sbc q                  ; A >= Q, so set A = A - Q
+
+    sec                    ; Set the C flag to rotate into the result in Q
+
+li14
+
+    rol p                  ; Rotate the counter in P to the left, and catch the
+                           ; result bit into bit 0 (which will be a 0 if we didn't
+                           ; do the subtraction, or 1 if we did)
+
+    bcc lil4               ; If we still have set bits in P, loop back to TIL2 to
+                           ; do the next iteration of 7
+
+                           ; We now have:
+                           ;
+                           ;   P = A / Q
+                           ;     = |delta_x| / |delta_y|
+                           ;
+                           ; and the C flag is set
+
+    ldx q                  ; Set X = Q + 1
+    inx                    ;       = |delta_y| + 1
+                           ;
+                           ; We add 1 so we can skip the first pixel plot if the
+                           ; line is being drawn with swapped coordinates
+
+    lda x2                 ; Set A = X2 - X1 (the C flag is set as we didn't take
+    sbc x1                 ; the above BCC)
+
+    bcc lft                ; If X2 < X1 then jump to LFT, as we need to draw the
+                           ; line to the left and down
+
+    clc                    ; Clear the C flag
+
+    lda swap               ; If SWAP = 0 then we didn't swap the coordinates above,
+    beq li17               ; so jump down to LI17 to skip plotting the first pixel
+
+    dex                    ; Decrement the counter in X because we're about to plot
+                           ; the first pixel
+
+lil5
+
+                           ; We now loop along the line from left to right, using X
+                           ; as a decreasing counter, and at each count we plot a
+                           ; single pixel using the pixel mask in R
+
+    lda r                  ; Fetch the pixel byte from R
+
+    eor (sc),y             ; Store R into screen memory at SC(1 0), using EOR
+    sta (sc),y             ; logic so it merges with whatever is already on-screen
+
+li17
+
+    dey                    ; Decrement Y to step up along the y-axis
+
+    bpl li16               ; If Y is positive we are still within the same
+                           ; character block, so skip to LI16
+
+    dec sch                ; Otherwise we need to move up into the character block
+    ldy #7                 ; above, so decrement the high byte of the screen
+                           ; address and set the pixel line to the last line in
+                           ; that character block
+
+li16
+
+    lda s                  ; Set S = S + Q to update the slope error
+    adc p
+    sta s
+
+    bcc lic5               ; If the addition didn't overflow, jump to LIC5
+
+    lsr r                  ; Otherwise we just overflowed, so shift the single
+                           ; pixel in R to the right, so the next pixel we plot
+                           ; will be at the next x-coordinate along
+
+    bcc lic5               ; If the pixel didn't fall out of the right end of R
+                           ; into the C flag, then jump to LIC5
+
+    ror r                  ; Otherwise we need to move over to the next character
+                           ; block, so first rotate R right so the set C flag goes
+                           ; back into the left end, giving %10000000
+
+    lda sc                 ; Add 8 to SC, so SC(1 0) now points to the next
+    adc #8                 ; character along to the right
+    sta sc
+
+lic5
+
+    dex                    ; Decrement the counter in X
+
+    bne lil5               ; If we haven't yet reached the right end of the line,
+                           ; loop back to LIL5 to plot the next pixel along
+
+    ldy ysav               ; Restore Y from YSAV, so that it's preserved
+
+    rts                    ; Return from the subroutine
+
+lft
+
+    lda swap               ; If SWAP = 0 then we didn't swap the coordinates above,
+    beq li18               ; jump down to LI18 to skip plotting the first pixel
+
+    dex                    ; Decrement the counter in X because we're about to plot
+                           ; the first pixel
+
+lil6
+
+    lda r                  ; Fetch the pixel byte from R
+
+    eor (sc),y             ; Store R into screen memory at SC(1 0), using EOR
+    sta (sc),y             ; logic so it merges with whatever is already on-screen
+
+li18
+
+    dey                    ; Decrement Y to step up along the y-axis
+
+    bpl li19               ; If Y is positive we are still within the same
+                           ; character block, so skip to LI19
+
+    dec sch                ; Otherwise we need to move up into the character block
+    ldy #7                 ; above, so decrement the high byte of the screen
+                           ; address and set the pixel line to the last line in
+                           ; that character block
+
+li19
+
+    lda s                  ; Set S = S + P to update the slope error
+    adc p
+    sta s
+
+    bcc lic6               ; If the addition didn't overflow, jump to LIC6
+
+    asl r                  ; Otherwise we just overflowed, so shift the single
+                           ; pixel in R to the left, so the next pixel we plot
+                           ; will be at the previous x-coordinate
+
+    bcc lic6               ; If the pixel didn't fall out of the left end of R
+                           ; into the C flag, then jump to LIC6
+
+    rol r                  ; Otherwise we need to move over to the next character
+                           ; block, so first rotate R left so the set C flag goes
+                           ; back into the right end, giving %0000001
+
+    lda sc                 ; Subtract 7 from SC, so SC(1 0) now points to the
+    sbc #7                 ; previous character along to the left
+    sta sc
+
+    clc                    ; Clear the C flag so it doesn't affect the additions
+                           ; below
+
+lic6
+
+    dex                    ; Decrement the counter in X
+
+    bne lil6               ; If we haven't yet reached the left end of the line,
+                           ; loop back to LIL6 to plot the next pixel along
+
+    ldy ysav               ; Restore Y from YSAV, so that it's preserved
+
+    rts                    ; Return from the subroutine
+
+set_mode
+    ldx #0                                  ;
+-
+    lda set_mode_data,x                     ;
+    jsr OSWRCH                              ;
+    inx                                     ;
+    cpx #set_mode_data_end - set_mode_data  ;
+    bne -                                   ;
+    rts                                     ;
+
+set_mode_data
+    !byte 22, 4             ; Switch to screen mode 4
+
+    !byte 23, 0, 6, 32      ; Set 6845 register R6 = 32
+    !byte 0, 0, 0           ;
+    !byte 0, 0, 0           ; This is the "vertical displayed" register, and sets
+                            ; the number of displayed character rows to 32.
+
+    !byte 23, 0, 12, $0C    ; Set 6845 register R12 = $0C and R13 = $00
+    !byte 0, 0, 0           ;
+    !byte 0, 0, 0           ; This sets 6845 registers (R12 R13) = $0C00 to point
+    !byte 23, 0, 13, $00    ; to the start of screen memory in terms of character
+    !byte 0, 0, 0           ; rows. There are 8 pixel lines in each character row,
+    !byte 0, 0, 0           ; so to get the actual address of the start of screen
+                            ; memory, we multiply by 8:
+                            ;
+                            ;   $0C00 * 8 = $6000
+                            ;
+                            ; So this sets the start of screen memory to $6000
+
+    !byte 23, 0, 1, 32      ; Set 6845 register R1 = 32
+    !byte 0, 0, 0           ;
+    !byte 0, 0, 0           ; This is the "horizontal displayed" register, which
+                            ; defines the number of character blocks per horizontal
+                            ; character row. For comparison, this value is 40 for
+                            ; modes 4 and 5, but our custom screen is not as wide at
+                            ; only 32 character blocks across
+
+    !byte 23, 0, 2, 45      ; Set 6845 register R2 = 45
+    !byte 0, 0, 0           ;
+    !byte 0, 0, 0           ; This is the "horizontal sync position" register, which
+                            ; defines the position of the horizontal sync pulse on
+                            ; the horizontal line in terms of character widths from
+                            ; the left-hand side of the screen. For comparison this
+                            ; is 49 for modes 4 and 5, but needs to be adjusted for
+                            ; our custom screen's width
+
+    !byte 23, 0, 10, 32     ; Set 6845 register R10 = 32
+    !byte 0, 0, 0           ;
+    !byte 0, 0, 0           ; This is the "cursor start" register, so this sets the
+                            ; cursor start line at 0, effectively disabling the
+                            ; cursor
+
+    !byte 31,0,7            ; move the text cursor home
+set_mode_data_end
+
+timer_block
+    !byte 0,0,0,0,0         ; TIME value to set
+
+reset_timer
+    lda #2                  ;
+    ldx #<timer_block       ;
+    ldy #>timer_block       ;
+    jmp OSWORD              ; set TIME
