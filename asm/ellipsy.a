@@ -44,139 +44,167 @@ offsetX = -64
 
 ; ***************************************************************************************
 dataX
-    !byte 218 + offsetX
+    !byte 218 + offsetX     ; 0-9
     !byte 214 + offsetX
     !byte 212 + offsetX
     !byte 211 + offsetX
     !byte 209 + offsetX
+
     !byte 206 + offsetX
     !byte 202 + offsetX
     !byte 198 + offsetX
     !byte 195 + offsetX
     !byte 193 + offsetX
-    !byte 191 + offsetX
+
+    !byte 191 + offsetX     ; 10-19
     !byte 189 + offsetX
     !byte 187 + offsetX
     !byte 178 + offsetX
     !byte 168 + offsetX
+
     !byte 162 + offsetX
     !byte 155 + offsetX
     !byte 145 + offsetX
     !byte 133 + offsetX
     !byte 127 + offsetX
-    !byte 121 + offsetX
+
+    !byte 121 + offsetX     ; 20-29
     !byte 112 + offsetX
     !byte 109 + offsetX
     !byte 105 + offsetX
     !byte 104 + offsetX
+
     !byte 103 + offsetX
     !byte 101 + offsetX
     !byte 100 + offsetX
     !byte 99 + offsetX
     !byte 99 + offsetX
-    !byte 100 + offsetX
+
+    !byte 100 + offsetX     ; 30-39
     !byte 101 + offsetX
     !byte 102 + offsetX
     !byte 104 + offsetX
     !byte 105 + offsetX
+
     !byte 108 + offsetX
     !byte 111 + offsetX
     !byte 114 + offsetX
     !byte 122 + offsetX
     !byte 124 + offsetX
-    !byte 127 + offsetX
+
+    !byte 127 + offsetX     ; 40-49
     !byte 128 + offsetX
     !byte 131 + offsetX
     !byte 134 + offsetX
     !byte 137 + offsetX
+
     !byte 147 + offsetX
     !byte 152 + offsetX
     !byte 155 + offsetX
     !byte 157 + offsetX
     !byte 167 + offsetX
-    !byte 169 + offsetX
+
+    !byte 169 + offsetX     ; 50-59
     !byte 178 + offsetX
     !byte 187 + offsetX
     !byte 193 + offsetX
     !byte 199 + offsetX
+
     !byte 208 + offsetX
     !byte 210 + offsetX
     !byte 215 + offsetX
     !byte 218 + offsetX
     !byte 219 + offsetX
-    !byte 220 + offsetX
+
+    !byte 220 + offsetX     ; 60-65
     !byte 221 + offsetX
     !byte 221 + offsetX
     !byte 220 + offsetX
     !byte 219 + offsetX
+
     !byte 218 + offsetX
+
+
 dataY
-    !byte 255 - 128
+    !byte 255 - 128     ; 0-9
     !byte 255 - 145
     !byte 255 - 152
     !byte 255 - 154
     !byte 255 - 160
+
     !byte 255 - 166
     !byte 255 - 174
     !byte 255 - 182
     !byte 255 - 187
     !byte 255 - 190
-    !byte 255 - 193
+
+    !byte 255 - 193     ; 10-19
     !byte 255 - 196
     !byte 255 - 198
     !byte 255 - 209
     !byte 255 - 218
+
     !byte 255 - 222
     !byte 255 - 225
     !byte 255 - 228
     !byte 255 - 228
     !byte 255 - 226
-    !byte 255 - 222
+
+    !byte 255 - 222     ; 20-29
     !byte 255 - 213
     !byte 255 - 208
     !byte 255 - 199
     !byte 255 - 196
+
     !byte 255 - 194
     !byte 255 - 185
     !byte 255 - 180
     !byte 255 - 171
     !byte 255 - 145
-    !byte 255 - 137
+
+    !byte 255 - 137     ; 30-39
     !byte 255 - 131
     !byte 255 - 126
     !byte 255 - 118
     !byte 255 - 114
+
     !byte 255 - 104
     !byte 255 - 97
     !byte 255 - 90
     !byte 255 - 74
     !byte 255 - 70
-    !byte 255 - 66
+
+    !byte 255 - 66     ; 40-49
     !byte 255 - 64
     !byte 255 - 60
     !byte 255 - 56
     !byte 255 - 53
+
     !byte 255 - 42
     !byte 255 - 38
     !byte 255 - 36
     !byte 255 - 35
     !byte 255 - 30
-    !byte 255 - 29
+
+    !byte 255 - 29     ; 50-59
     !byte 255 - 28
     !byte 255 - 28
     !byte 255 - 30
     !byte 255 - 34
+
     !byte 255 - 43
     !byte 255 - 46
     !byte 255 - 56
     !byte 255 - 66
     !byte 255 - 70
-    !byte 255 - 76
+
+    !byte 255 - 76     ; 60-65
     !byte 255 - 84
     !byte 255 - 111
     !byte 255 - 119
     !byte 255 - 125
-    !byte 255 - 127
+
+    !byte 255 - 128
 
 
 twos
@@ -371,7 +399,7 @@ li5
     bcs down               ; If Y2 >= Y1 - 1 then jump to DOWN, as we need to draw
                            ; the line to the right and down
     lda swap               ; If SWAP > 0 then we swapped the coordinates above, so
-    bne li6                ; jump down to LI6 to skip plotting the first pixel
+    beq li6                ; jump down to LI6 to skip plotting the first pixel
 
     dex                    ; Decrement the counter in X because we're about to plot
                            ; the first pixel
