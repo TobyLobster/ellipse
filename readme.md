@@ -8,7 +8,7 @@ Run [6502 code in emulator](https://bbc.godbolt.org/?autoboot&disc=https://raw.g
 
 See [algorithm derivation](./algorithm_derivation/derivation.ipynb)
 
-Given this algorithm, we use an innovative approach to rendering, using short straight lines that render identically to the individual pixels that would normally be drawn.
+A new method is used to speed up rendering further. We draw short straight lines that render identically to the individual pixels that would normally be drawn.
 
 See [rendering fewer lines](./fewer_lines.md)
 
