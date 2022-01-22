@@ -6,19 +6,22 @@ multiplier   = $71
 multiplicand = $75
 product      = $79
 
-result_index        = $81
-product_index       = $81
-param1_index        = $82
-multiplicand_index  = $82
-multiplier_index    = $83
+result_index                = $81
+product_index               = $81
+param1_index                = $82
+multiplicand_index          = $82
+multiplier_index            = $83
 
-quadrant            = $85
-dir                 = $86
-screen_low          = $87
-screen_high         = $88
-tempX               = $89
-tempY1              = $8a
-tempY2              = $8b
+quadrant                    = $85
+dir                         = $86
+screen_low                  = $87
+screen_high                 = $88
+tempXLow                    = $89
+tempXHigh                   = $8a
+tempYLow                    = $8b
+tempYHigh                   = $8c
+offsetWithinCharacterRow    = $8d
+variable                    = $8e
 
 * = $2400
 
@@ -656,76 +659,6 @@ multiply32
     rts                                 ;
 
 ; ***************************************************************************************
-plot_block
-    !word 0                             ; NOTE: These bytes are reversed
-    !word 0                             ; when sending to the VDU drivers
-plot_type
-    !byte 5                             ; PLOT type
-    !byte 25                            ; VDU 25 for PLOT
-
-; ***************************************************************************************
-; PLOT plot_type, centreX + variables[X],centreY + variables[Y]
-plot_xy
-    lda variables_start,X               ;
-    clc                                 ;
-    adc centrex                         ;
-    sta plot_block + 3                  ;
-    lda variables_start + 1,X           ;
-    adc centrex + 1                     ;
-    sta plot_block + 2                  ;
-
-    lda variables_start,Y               ;
-    clc                                 ;
-    adc centrey                         ;
-    sta plot_block + 1                  ;
-    lda variables_start + 1,Y           ;
-    adc centrey + 1                     ;
-    sta plot_block + 0                  ;
-
-mult_by_four_and_plot
-    asl plot_block + 1                  ;
-    rol plot_block                      ;
-    asl plot_block + 1                  ;
-    rol plot_block                      ; multiply coordinates by four
-    asl plot_block + 3                  ;
-    rol plot_block + 2                  ;
-    asl plot_block + 3                  ;
-    rol plot_block + 2                  ;
-
-    ldx #5                              ;
--
-    lda plot_block,X                    ;
-    jsr OSWRCH                          ;
-    dex                                 ;
-    bpl -                               ;
-    rts                                 ;
-
-; ***************************************************************************************
-plot_point
-    lda #69                             ; PLOT 69 (point)
-    sta plot_type                       ;
-
-    lda pixelx                          ;
-    clc                                 ;
-    adc centrex                         ;
-    sta plot_block + 3                  ;
-
-    lda pixelx + 1                      ;
-    adc centrex + 1                     ;
-    sta plot_block + 2                  ;
-
-    lda pixely                          ;
-    clc                                 ;
-    adc centrey                         ;
-    sta plot_block + 1                  ;
-
-    lda pixely + 1                      ;
-    adc centrey + 1                     ;
-    sta plot_block + 0                  ;
-
-    jmp mult_by_four_and_plot           ;
-
-; ***************************************************************************************
 copy4_to_zp
     lda variables_start,X               ;
     sta $00,Y                           ;
@@ -1115,30 +1048,48 @@ return1
 add_point
     sta dir                             ;
     stx quadrant                        ;
+    sty variable                        ;
 
-    lda variables_start,y               ;
-    sta newx                            ; newx = variable[y]
-    lda variables_start + 1,y           ;
-    sta newx + 1                        ;
+    lda centrex                         ;
+    clc                                 ;
+    adc variables_start,y               ;
+    sta newx                            ; newx = centrex + variable[y]
+    lda centrex+1                       ;
+    adc variables_start+1,y             ;
+    sta newx+1                          ;
 
-    lda y                               ;
+    lda centrey                         ;
+    clc                                 ;
+    adc y                               ;
     sta newy                            ;
-    lda y+1                             ; newy = y
+    lda centrey+1                       ; newy = centrey + y
+    adc y+1                             ;
     sta newy + 1                        ;
 
     jsr add_point_quadrant              ;
 
-    lda newy                            ;
-    ora newy + 1                        ;
+    lda y                               ;
+    ora y + 1                           ;
     beq return1                         ; IF (Y=0) return
 
-    ldx #newy - variables_start         ;
-    ldy #newy - variables_start         ;
-    jsr negate16                        ; newy = -newy
 
-    ldx #newx - variables_start         ;
-    ldy #newx - variables_start         ;
-    jsr negate16                        ; newx = -newx
+    ldy variable                        ;
+    lda centrex                         ;
+    sec                                 ;
+    sbc variables_start,y               ;
+    sta newx                            ; newx = centrex - variable[y]
+    lda centrex+1                       ;
+    sbc variables_start+1,y             ;
+    sta newx+1                          ;
+
+    lda centrey                         ;
+    sec                                 ;
+    sbc y                               ;
+    sta newy                            ;
+    lda centrey+1                       ; newy = centrey - y
+    sbc y+1                             ;
+    sta newy + 1                        ;
+
 
     lda #3                              ;
     sec                                 ;
@@ -1163,16 +1114,9 @@ add_point
 ;
 ; ***************************************************************************************
 add_point_quadrant
-    ; to test the right points are here draw a point and return
-    ;lda #69                             ;
-    ;sta plot_type                       ;
-    ;ldx #newx - variables_start         ;
-    ;ldy #newy - variables_start         ;
-    ;jmp plot_xy                         ; PLOT 69, newx*4, newy*4
-
     ldx quadrant                        ;
     lda state,x                         ;
-    bne state_one                       ; if (state[quadrant] == 0) { goto state_zero }
+    bne state_one                       ; if (state[quadrant] == 1) { goto state_one }
     ; fall through...
 
 ; ***************************************************************************************
@@ -1185,43 +1129,51 @@ add_point_quadrant
 ;
 ; ***************************************************************************************
 state_zero
+    lda newy                            ;
+    and #7                              ;
+    sta offsetWithinCharacterRow        ;
+    lda newy+1                          ;
+    sta tempYHigh                       ; tempYLow/High = newy
 
     lda newy                            ;
+    lsr tempYHigh                       ;
+    ror                                 ;
+    lsr tempYHigh                       ;
+    ror                                 ;
+    lsr tempYHigh                       ;
+    ror                                 ;
+
     clc                                 ;
-    adc centrey                         ;
-    sta tempY1                          ;
-    and #7                              ;
-    sta tempY2                          ;
-    lda tempY1                          ;
-    lsr                                 ;
-    lsr                                 ;
-    lsr                                 ;
-    ora #$60                            ;
+    adc #$60                            ;
+    sta screenAddrHigh,x                ;
+
+    lda newx                            ;
+    and #%11111000                      ; offset in bytes from the start of the row
+    clc                                 ;
+    adc offsetWithinCharacterRow        ;
+    sta screenAddrLow,x                 ;
+    sta screen_low                      ;
+    lda newx+1                          ;
+    adc screenAddrHigh,x                ;
     sta screenAddrHigh,x                ;
     sta screen_high                     ;
 
     lda newx                            ;
-    clc                                 ;
-    adc centrex                         ;
-    sta tempX                           ;
-    and #%11111000                      ; offset in bytes from the start of the row
-    clc
-    adc tempY2                          ;
-    sta screenAddrLow,x                 ;
-    sta screen_low                      ;
-
-
-    lda tempX                           ;
     and #%00000111                      ; set mask,x based on horizontal position AND 7
     tay                                 ;
     lda bitset,y                        ;
     sta mask,x                          ;
+
+    lda newx+1                          ;
+    ora newy+1                          ; clipping
+    bne clipped0                        ;
 
     ldy #0                              ;
     lda (screen_low),y                  ;
     eor mask,x                          ; write pixel
     sta (screen_low),y                  ;
 
+clipped0
     lda #1                              ;
     sta state,x                         ; state[quadrant] = 1;
     rts                                 ;
@@ -1257,6 +1209,8 @@ move_right
     clc                                 ;
     adc #8                              ;
     sta screen_low                      ;
+    bcc test_dy                         ; }
+    inc screen_high                     ; } needed to keep address straight for clipping purposes
 
     ; Test dy
 test_dy
@@ -1267,20 +1221,24 @@ move_down
     inc screen_low                      ;
     lda screen_low                      ;
     and #%00000111                      ;
-    bne +                               ; if not on row boundary, skip
+    bne write_pixel                     ; if not on row boundary, skip
     inc screen_high                     ; increment high byte on row boundary
     lda screen_low                      ;
     sec                                 ;
     sbc #8                              ;
     sta screen_low                      ;
-+
 
 write_pixel
+    lda newx+1                          ;
+    ora newy+1                          ; clipping
+    bne clipped                         ;
+
     ldy #0                              ;
     lda (screen_low),y                  ;
     eor mask,x                          ; write pixel
     sta (screen_low),y                  ;
 
+clipped
     lda screen_low                      ;
     sta screenAddrLow,x                 ;
     lda screen_high                     ; restore current address back into main memory from zp cache
@@ -1296,20 +1254,20 @@ move_left
     sec                                 ;
     sbc #8                              ;
     sta screen_low                      ;
+    bcs test_dy                         ; }
+    dec screen_high                     ; } needed to keep address straight for clipping purposes
     jmp test_dy                         ;
 
 move_up
     lda screen_low                      ;
+    dec screen_low                      ;
     and #%00000111                      ;
-    bne +                               ; if not on row boundary, skip
+    bne write_pixel                     ; if not on row boundary, skip
     lda screen_low                      ;
     clc                                 ;
-    adc #7                              ;
+    adc #8                              ;
     sta screen_low                      ;
     dec screen_high                     ;
-    jmp write_pixel                     ;
-+
-    dec screen_low                      ;
     jmp write_pixel                     ;
 
 ; ***************************************************************************************
@@ -1338,10 +1296,8 @@ variables_start
 ; inputs
 centrex
     !word 128
-;    !word 0
 centrey
     !word 128
-;    !word 0
 a
     !word 58
 b
