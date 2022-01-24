@@ -1,0 +1,1295 @@
+OSWRCH = $FFEE
+OSWORD = $fff1
+
+counter      = $70
+multiplier   = $71
+multiplicand = $75
+product      = $79
+
+result_index                = $81
+product_index               = $81
+param1_index                = $82
+multiplicand_index          = $82
+multiplier_index            = $83
+
+quadrant                    = $85
+dir                         = $86
+screen_low                  = $87
+screen_high                 = $88
+regular_dir                 = $89
+current_dir                 = $8a
+unused8b                    = $8b
+tempYHigh                   = $8c
+offsetWithinCharacterRow    = $8d
+variable                    = $8e
+temp                        = $8f
+
+* = $2400
+
+; ***************************************************************************************
+!macro macro_add16 .r, .a, .b {
+    lda .a                              ;
+    clc                                 ;
+    adc .b                              ;
+    sta .r                              ;
+    lda .a + 1                          ;
+    adc .b + 1                          ;
+    sta .r + 1                          ;
+}
+
+!macro macro_add32 .r, .a, .b {
+    lda .a                              ;
+    clc                                 ;
+    adc .b                              ;
+    sta .r                              ;
+    lda .a + 1                          ;
+    adc .b + 1                          ;
+    sta .r + 1                          ;
+    lda .a + 2                          ;
+    adc .b + 2                          ;
+    sta .r + 2                          ;
+    lda .a + 3                          ;
+    adc .b + 3                          ;
+    sta .r + 3                          ;
+}
+
+!macro macro_dec16 .r {
+    lda .r                              ;
+    bne +                               ;
+    dec .r + 1                          ;
++
+    dec .r                              ;
+}
+
+; ***************************************************************************************
+!macro macro_subtract16 .r, .a, .b {
+    lda .a                              ;
+    sec                                 ;
+    sbc .b                              ;
+    sta .r                              ;
+    lda .a + 1                          ;
+    sbc .b + 1                          ;
+    sta .r + 1                          ;
+}
+
+; ***************************************************************************************
+!macro macro_subtract32 .r, .a, .b {
+    lda .a                              ;
+    sec                                 ;
+    sbc .b                              ;
+    sta .r                              ;
+    lda .a + 1                          ;
+    sbc .b + 1                          ;
+    sta .r + 1                          ;
+    lda .a + 2                          ;
+    sbc .b + 2                          ;
+    sta .r + 2                          ;
+    lda .a + 3                          ;
+    sbc .b + 3                          ;
+    sta .r + 3                          ;
+}
+
+; ***************************************************************************************
+!macro macro_double16 .r {
+    asl .r                              ;
+    rol .r+1                            ;
+}
+
+; ***************************************************************************************
+!macro macro_double32 .r {
+    asl .r                              ;
+    rol .r+1                            ;
+    rol .r+2                            ;
+    rol .r+3                            ;
+}
+; ***************************************************************************************
+!macro macro_halve16 .r {
+    lsr .r+1                            ;
+    ror .r                              ;
+}
+
+; ***************************************************************************************
+!macro macro_halve16 .r, .a {
+    lda .a+1                            ;
+    lsr                                 ;
+    sta .r+1                            ;
+    lda .a                              ;
+    ror                                 ;
+    sta .r                              ;
+}
+
+; ***************************************************************************************
+!macro macro_halve32 .r {
+    lsr .r+3                            ;
+    ror .r+2                            ;
+    ror .r+1                            ;
+    ror .r                              ;
+}
+
+; ***************************************************************************************
+!macro macro_copy16 .r, .a {
+    lda .a                              ;
+    sta .r                              ;
+    lda .a+1                            ;
+    sta .r+1                            ;
+}
+
+; ***************************************************************************************
+!macro macro_copy32 .r, .a {
+    lda .a                              ;
+    sta .r                              ;
+    lda .a+1                            ;
+    sta .r+1                            ;
+    lda .a+2                            ;
+    sta .r+2                            ;
+    lda .a+3                            ;
+    sta .r+3                            ;
+}
+
+; ***************************************************************************************
+!macro macro_zero16 .r {
+    lda #0                              ;
+    sta .r                              ;
+    sta .r+1                            ;
+}
+
+; ***************************************************************************************
+main
+    jsr set_mode                        ;
+    jsr reset_timer                     ;
+
+draw_ellipse
+    lda #0                              ;
+    sta state                           ;
+    sta state + 1                       ; reset state of each quadrant
+    sta state + 2                       ;
+    sta state + 3                       ;
+
+    lda #a - variables_start            ;
+    ldx #a - variables_start            ;
+    ldy #aa - variables_start           ;
+    jsr multiply16                      ; AA = A*A
+
+    lda #b - variables_start            ;
+    ldx #b - variables_start            ;
+    ldy #bb - variables_start           ;
+    jsr multiply16                      ; BB = B*B
+
+    lda #bb - variables_start           ;
+    ldx #eight - variables_start        ;
+    ldy #bb_scaled - variables_start    ;
+    jsr multiply16                      ; BBdouble = BB*8
+
+    lda #a - variables_start            ;
+    ldx #bb - variables_start           ;
+    ldy #abb - variables_start          ;
+    jsr multiply16                      ; ABB = A*BB
+
+    lda #aa - variables_start           ;
+    ldx #eight - variables_start        ;
+    ldy #aa_scaled - variables_start    ;
+    jsr multiply16                      ; AAdouble = AA*8
+
+    +macro_copy16 xwidth,a              ; xwidth = A ("X Width" is horizontal half-width of ellipse)
+
+    lda #a - variables_start            ;
+    ldx #b - variables_start            ;
+    ldy #t2 - variables_start           ;
+    jsr multiply16                      ; T2 = A*B
+
+    +macro_double32 t2                  ; T2 = 2*T2
+    +macro_add32 t2, t2, b              ; T2 = T2 + B
+    +macro_add32 dr, abb, abb           ; DR = ABB + ABB
+    +macro_double32 dr                  ; DR = 2*DR
+    +macro_add32 dr, dr, bb             ; DR = DR + BB
+
+    lda #b - variables_start            ;
+    ldx #t2 - variables_start           ;
+    ldy #fr - variables_start           ;
+    jsr multiply32                      ; FR = B * T2
+
+    +macro_subtract32 fr, fr, bb        ; FR = FR - BB
+    +macro_double32 fr                  ; FR = 2*FR
+    +macro_double32 fr                  ; FR = 2*FR
+
+    +macro_copy32 ddr, aa               ; DDR = AA
+    +macro_double32 ddr                 ; DDR = 2*DDR
+    +macro_double32 ddr                 ; DDR = 2*DDR
+
+setup_loop
+    lda fr+3                            ;
+    ora fr+2                            ;
+    bne in_setup_loop                   ;
+    lda ddr+3                           ;
+    ora ddr+2                           ;
+    bne in_setup_loop                   ;
+
+    lda fr+1                            ;
+    ora ddr+1                           ;
+    bpl done_setup_loop                 ; IF top bit of fr or DDR is clear, branch
+
+in_setup_loop
+    +macro_halve32 bb_scaled            ; BBdouble /= 2
+    +macro_halve32 aa_scaled            ; AAdouble /= 2
+    +macro_halve32 dr                   ; DR /= 2
+    +macro_halve32 fr                   ; FR /= 2
+    +macro_halve32 ddr                  ; DDR /= 2   reduce everything down to 16 bits (losing some accuracy!)
+    jmp setup_loop                      ;
+
+done_setup_loop
+    +macro_halve16 ec, b                ; EC = B / 2
+    +macro_zero16 xc                    ; XC = 0
+
+    +macro_copy16 oxr, a                ; OXR = A
+
+    ldx #a - variables_start            ;
+    ldy #oxl - variables_start          ;
+    jsr negate16                        ; OXL = -A
+
+    lda #0                              ;
+    ldx #y - variables_start            ;
+    jsr set_variable16_to_a             ; Y = 0
+
+fory_loop
+
+loop1
+    lda dr+1                            ;
+    cmp fr+1                            ;
+    bcc done_loop1                      ;
+    bne in_loop                         ;
+    lda dr                              ;
+    cmp fr                              ;
+    bcc done_loop1                      ;
+    beq done_loop1                      ; IF DR <= FR THEN GOTO...
+
+    lda xwidth+1                        ;
+    bmi done_loop1                      ;
+    ora xwidth                          ;
+    beq done_loop1                      ; IF XW<=0 THEN GOTO...
+
+in_loop
+    +macro_dec16 xwidth                 ; XW -= 1
+    +macro_subtract16 dr, dr, fr        ; DR = DR - FR
+    +macro_subtract16 fr, fr, bb_scaled ; FR = FR - BBdouble
+    JMP loop1                           ;
+
+done_loop1
+
+    ; MOVE and DRAW right side
+    +macro_add16 xr, xc, xwidth         ; XR = XC+XW
+
+    ldx #xr - variables_start           ;
+    ldy #oxr - variables_start          ;
+    jsr compare16                       ; increment=SGN(XR-OXR)
+
+    lda increment                       ; direction
+    clc                                 ;
+    adc #4                              ;
+    sta regular_dir                     ;
+    clc                                 ;
+    adc #3                              ;
+    sta current_dir                     ;
+
+line_loop1
+    +macro_add16 oxr, oxr, increment    ;
+
+    lda current_dir                     ; direction
+    ldx #1                              ; X is the quadrant to use
+    ldy #oxr - variables_start          ; Y is the x coordinate to use
+    jsr add_point                       ;
+
+    lda regular_dir                     ;
+    sta current_dir                     ;
+
+    lda oxr                             ;
+    cmp xr                              ;
+    bne line_loop1                      ;
+
+    ; MOVE and DRAW left side
+    +macro_subtract16 xl, xc, xwidth    ; XL = XC-XW
+
+    ldx #xl - variables_start           ;
+    ldy #oxl - variables_start          ;
+    jsr compare16                       ; increment=SGN(XL-OXL)
+
+    lda increment                       ; direction
+    clc                                 ;
+    adc #4                              ;
+    sta regular_dir                     ;
+    clc                                 ;
+    adc #3                              ;
+    sta current_dir                     ;
+
+line_loop2
+    +macro_add16 oxl, oxl, increment    ;
+
+    lda current_dir                     ; direction
+    ldx #0                              ; X is the quadrant to use
+    ldy #oxl - variables_start          ; Y is the x coordinate to use
+    jsr add_point                       ;
+
+    lda regular_dir                     ;
+    sta current_dir                     ;
+
+    lda oxl                             ;
+    cmp xl                              ;
+    bne line_loop2                      ; IF OXL != OL THEN GOTO...
+
+    lda s+1                             ;
+    bmi subtract_s                      ; IF S<0 GOTO...
+    ora s                               ;
+    beq store_increment                 ; IF S=0 GOTO...
+add_s
+    +macro_add16 ec, ec, s              ;
+    lda #1                              ;
+store_increment
+    sta increment_s                     ;
+    lda #0                              ;
+    sta increment_s+1                   ;
+    beq centre_line_loop                ; ALWAYS branch
+subtract_s
+    +macro_subtract16 ec, ec, s         ;
+    lda #$ff                            ;
+    sta increment_s                     ;
+    sta increment_s+1                   ;
+
+centre_line_loop
+    ldx #ec - variables_start           ;
+    ldy #b - variables_start            ;
+    jsr compare16                       ;
+    bmi done_centre_line_loop           ;
+    beq done_centre_line_loop           ; if SGN(EC-B) <= 0 THEN GOTO ...
+
+    +macro_add16 xc, xc, increment_s    ; XC += SGN(S)
+    +macro_subtract16 ec, ec, b         ; EC -= B
+    jmp centre_line_loop                ;
+
+done_centre_line_loop
+    +macro_add16 dr, dr, ddr            ; DR += DDR
+    +macro_add16 ddr, ddr, aa_scaled    ; DDR += AAdouble
+
+    inc y                               ;
+    bne +                               ;
+    inc y+1                             ; Y+=1
++
+
+    lda y                               ;
+    cmp b                               ;
+    bne +                               ;
+    lda y+1                             ;
+    cmp b+1                             ;
+    beq do_last_row                     ;
++
+    jmp fory_loop                       ; IF B != Y GOTO fory_loop
+
+do_last_row
+    ; draw a horizontal line from left to right: XL+DX to XR-DX
+    ldx #xr - variables_start           ;
+    ldy #xl - variables_start           ;
+    jsr compare16                       ; increment = SGN(XR-XL)
+
+    +macro_subtract16 xr, xr, increment ; end point
+
+    lda #4                              ;
+    clc                                 ;
+    adc increment                       ; A = 4 + increment        (i.e. the direction)
+    sta temp                            ;
+
+final_line_loop
+
+    +macro_add16 xl, xl, increment      ;
+
+    lda temp                            ;
+    ldx #0                              ; X is the quadrant to use
+    ldy #xl - variables_start           ; Y is the x coordinate to use
+    jsr add_point                       ;
+
+    lda xl                              ;
+    cmp xr                              ;
+    bne final_line_loop                 ;
+    rts                                 ;
+
+
+; ***************************************************************************************
+;
+; Y = A * X
+;
+; multiplies two 32 bit unsigned integers into a 32 bit result
+;
+; On Entry:
+;   The registers are the byte offsets from variables_start to the variables:
+;   A = multiplier      (4 bytes)
+;   X = multiplicand    (4 bytes)
+;   Y = result          (4 bytes)
+;
+; ***************************************************************************************
+multiply32
+    sta multiplier_index                ;
+    stx multiplicand_index              ;
+    sty product_index                   ;
+
+    tax
+    ldy #multiplier                     ;
+    jsr copy4_to_zp                     ;
+
+    ldx multiplicand_index              ;
+    ldy #multiplicand                   ;
+    jsr copy4_to_zp                     ;
+
+    lda #32                             ; set binary count to 32
+    sta counter                         ;
+    lda #0                              ;
+    sta product + 4                     ; clear upper half of product
+    sta product + 5                     ;
+    sta product + 6                     ;
+    sta product + 7                     ;
+-
+    lsr multiplier + 3                  ; shift multiplier right
+    ror multiplier + 2                  ;
+    ror multiplier + 1                  ;
+    ror multiplier + 0                  ;
+    bcc +                               ; go rotate right if c = 0
+
+    lda product + 4                     ; get upper half of product and add multiplicand to it
+    clc                                 ;
+    adc multiplicand                    ;
+    sta product + 4                     ;
+
+    lda product + 5                     ;
+    adc multiplicand + 1                ;
+    sta product + 5                     ;
+
+    lda product + 6                     ;
+    adc multiplicand + 2                ;
+    sta product + 6                     ;
+
+    lda product + 7                     ;
+    adc multiplicand + 3                ;
+
++
+    ror                                 ; rotate partial product right
+    sta product + 7                     ;
+    ror product + 6                     ;
+    ror product + 5                     ;
+    ror product + 4                     ;
+    ror product + 3                     ;
+    ror product + 2                     ;
+    ror product + 1                     ;
+    ror product + 0                     ;
+    dec counter                         ; decrement bit count and
+    bne -                               ; loop until 32 bits are done
+
+    ; copy result (4 bytes)
+    ldx product_index                   ;
+    ldy #3                              ;
+-
+    lda product,Y                       ;
+    sta variables_start + 3,X           ;
+    dex                                 ;
+    dey                                 ;
+    bpl -                               ;
+    rts                                 ;
+
+; ***************************************************************************************
+copy4_to_zp
+    lda variables_start,X               ;
+    sta $00,Y                           ;
+    lda variables_start + 1,X           ;
+    sta $01,Y                           ;
+    lda variables_start + 2,X           ;
+    sta $02,Y                           ;
+    lda variables_start + 3,X           ;
+    sta $03,Y                           ;
+    rts                                 ;
+
+; ***************************************************************************************
+copy2_to_zp
+    lda variables_start,X               ;
+    sta $00,Y                           ;
+    lda variables_start + 1,X           ;
+    sta $01,Y                           ;
+    rts                                 ;
+
+; ***************************************************************************************
+set_variable16_to_a
+    sta variables_start,X               ;
+    lda #0                              ;
+    sta variables_start + 1,X           ;
+    rts                                 ;
+
+; ***************************************************************************************
+set_variable32_to_a
+    sta variables_start,X               ;
+    lda #0                              ;
+    sta variables_start + 1,X           ;
+    sta variables_start + 2,X           ;
+    sta variables_start + 3,X           ;
+    rts                                 ;
+
+; ***************************************************************************************
+just_copy
+    sta variables_start + 1,Y           ;
+    lda variables_start,X               ;
+    sta variables_start,Y               ;
+    rts                                 ;
+
+; ***************************************************************************************
+abs16
+    lda variables_start + 1,X           ;
+    bpl just_copy                       ;
+    ; fall through...
+
+; ***************************************************************************************
+;
+; Y = -X
+;
+; ***************************************************************************************
+negate16
+    lda #0                              ;
+    sec                                 ;
+    sbc variables_start,X               ;
+    sta variables_start,Y               ;
+    lda #0                              ;
+    sbc variables_start + 1,X           ;
+    sta variables_start + 1,Y           ;
+    rts                                 ;
+
+; ***************************************************************************************
+;
+; Y = -X
+;
+; ***************************************************************************************
+negate32
+    lda #0                              ;
+    sec                                 ;
+    sbc variables_start,X               ;
+    sta variables_start,Y               ;
+    lda #0                              ;
+    sbc variables_start + 1,X           ;
+    sta variables_start + 1,Y           ;
+    lda #0                              ;
+    sbc variables_start + 2,X           ;
+    sta variables_start + 2,Y           ;
+    lda #0                              ;
+    sbc variables_start + 3,X           ;
+    sta variables_start + 3,Y           ;
+    rts                                 ;
+
+; ***************************************************************************************
+;
+; Y = X
+;
+; ***************************************************************************************
+copy32
+    lda variables_start + 3,X           ;
+    sta variables_start + 3,Y           ;
+    lda variables_start + 2,X           ;
+    sta variables_start + 2,Y           ;
+copy16
+    lda variables_start + 1,X           ;
+    sta variables_start + 1,Y           ;
+    lda variables_start,X               ;
+    sta variables_start,Y               ;
+    rts                                 ;
+
+; ***************************************************************************************
+;
+; Y = A-X
+;
+; ***************************************************************************************
+subtract16
+    sty result_index                    ;
+    sta param1_index                    ;
+    tay                                 ;
+
+    lda variables_start,Y               ;
+    sec                                 ;
+    sbc variables_start,X               ;
+    ldy result_index                    ;
+    sta variables_start,Y               ;
+    ldy param1_index                    ;
+    lda variables_start + 1,Y           ;
+    sbc variables_start + 1,X           ;
+    ldy result_index                    ;
+    sta variables_start + 1,Y           ;
+    rts                                 ;
+
+; ***************************************************************************************
+;
+; Y = A-X
+;
+; ***************************************************************************************
+subtract32
+    sty result_index                    ;
+    sta param1_index                    ;
+    tay                                 ;
+
+    lda variables_start,Y               ;
+    sec                                 ;
+    sbc variables_start,X               ;
+    ldy result_index                    ;
+    sta variables_start,Y               ;
+
+    ldy param1_index                    ;
+    lda variables_start + 1,Y           ;
+    sbc variables_start + 1,X           ;
+    ldy result_index                    ;
+    sta variables_start + 1,Y           ;
+
+    ldy param1_index                    ;
+    lda variables_start + 2,Y           ;
+    sbc variables_start + 2,X           ;
+    ldy result_index                    ;
+    sta variables_start + 2,Y           ;
+
+    ldy param1_index                    ;
+    lda variables_start + 3,Y           ;
+    sbc variables_start + 3,X           ;
+    ldy result_index                    ;
+    sta variables_start + 3,Y           ;
+    rts                                 ;
+
+; ***************************************************************************************
+;
+; Y = Y-X
+;
+; ***************************************************************************************
+decrement32
+    lda variables_start,Y               ;
+    sec                                 ;
+    sbc variables_start,X               ;
+    sta variables_start,Y               ;
+    lda variables_start + 1,Y           ;
+    sbc variables_start + 1,X           ;
+    sta variables_start + 1,Y           ;
+
+    lda variables_start + 2,Y           ;
+    sbc variables_start + 2,X           ;
+    sta variables_start + 2,Y           ;
+
+    lda variables_start + 3,Y           ;
+    sbc variables_start + 3,X           ;
+    sta variables_start + 3,Y           ;
+    rts                                 ;
+
+; ***************************************************************************************
+;
+; Y = A+X
+;
+; ***************************************************************************************
+add32
+    sty result_index                    ;
+    sta param1_index                    ;
+    tay                                 ;
+
+    lda variables_start,Y               ;
+    clc                                 ;
+    adc variables_start,X               ;
+    ldy result_index                    ;
+    sta variables_start,Y               ;
+
+    ldy param1_index                    ;
+    lda variables_start + 1,Y           ;
+    adc variables_start + 1,X           ;
+    ldy result_index                    ;
+    sta variables_start + 1,Y           ;
+
+    ldy param1_index                    ;
+    lda variables_start + 2,Y           ;
+    adc variables_start + 2,X           ;
+    ldy result_index                    ;
+    sta variables_start + 2,Y           ;
+
+    ldy param1_index                    ;
+    lda variables_start + 3,Y           ;
+    adc variables_start + 3,X           ;
+    ldy result_index                    ;
+    sta variables_start + 3,Y           ;
+    rts                                 ;
+
+; ***************************************************************************************
+;
+; Y = Y+X
+;
+; ***************************************************************************************
+increment32
+    lda variables_start,Y               ;
+    clc                                 ;
+    adc variables_start,X               ;
+    sta variables_start,Y               ;
+
+    lda variables_start + 1,Y           ;
+    adc variables_start + 1,X           ;
+    sta variables_start + 1,Y           ;
+
+    lda variables_start + 2,Y           ;
+    adc variables_start + 2,X           ;
+    sta variables_start + 2,Y           ;
+
+    lda variables_start + 3,Y           ;
+    adc variables_start + 3,X           ;
+    sta variables_start + 3,Y           ;
+    rts                                 ;
+
+; ***************************************************************************************
+;
+; Y = A+X
+; preserves X
+;
+; ***************************************************************************************
+add16
+    sty result_index                    ;
+    sta param1_index                    ;
+    tay                                 ;
+
+    lda variables_start,Y               ;
+    clc                                 ;
+    adc variables_start,X               ;
+    ldy result_index                    ;
+    sta variables_start,Y               ;
+
+    ldy param1_index                    ;
+    lda variables_start + 1,Y           ;
+    adc variables_start + 1,X           ;
+    ldy result_index                    ;
+    sta variables_start + 1,Y           ;
+
+    rts                                 ;
+
+; ***************************************************************************************
+sgn16
+    lda variables_start + 1,X           ;
+    bmi negative                        ;
+    bne positive                        ;
+    ora variables_start + 0,X           ;
+    beq iszero                          ;
+    ; fall through...
+
+positive
+    lda #1                              ;
+    sta variables_start + 0,X           ;
+    lda #0                              ;
+    sta variables_start + 1,X           ;
+    rts                                 ;
+
+negative
+    lda #255                            ;
+    ; fall through...
+
+iszero
+    sta variables_start + 0,X           ;
+    sta variables_start + 1,X           ;
+    rts                                 ;
+
+; ***************************************************************************************
+compare16
+    lda variables_start,X               ;
+    sec                                 ;
+    sbc variables_start,Y               ;
+    sta temp                            ;
+    lda variables_start + 1,X           ;
+    sbc variables_start + 1,Y           ;
+    bmi less                            ;
+    bne greater                         ;
+    lda temp                            ;
+    bne greater                         ;
+equal
+    lda #0                              ;
+store_and_exit
+    sta increment                       ;
+    sta increment+1                     ;
+    rts                                 ;
+greater
+    lda #0                              ;
+    sta increment+1                     ;
+    lda #1                              ;
+    sta increment                       ;
+    rts                                 ;
+less
+    lda #$ff                            ;
+    bne store_and_exit                  ; ALWAYS branch
+
+
+; ***************************************************************************************
+;
+; Y = X/2
+;
+; ***************************************************************************************
+div2_32
+    lda variables_start + 3,X           ;
+    lsr                                 ;
+    sta variables_start + 3,Y           ;
+    lda variables_start + 2,X           ;
+    ror                                 ;
+    sta variables_start + 2,Y           ;
+div2_16
+    lda variables_start + 1,X           ;
+    ror                                 ;
+    sta variables_start + 1,Y           ;
+    lda variables_start + 0,X           ;
+    ror                                 ;
+    sta variables_start + 0,Y           ;
+    rts                                 ;
+
+; ***************************************************************************************
+;
+; Y = A * X
+;
+; multiplies two 16 bit unsigned integers into a 32 bit result
+;
+; On Entry:
+;   The registers are the byte offsets from variables_start to the variables:
+;   A = multiplier      (2 bytes)
+;   X = multiplicand    (2 bytes)
+;   Y = result          (4 bytes)
+;
+; ***************************************************************************************
+multiply16
+    sta multiplier_index                ;
+    stx multiplicand_index              ;
+    sty product_index                   ;
+
+    tax
+    ldy #multiplier                     ;
+    jsr copy2_to_zp                     ;
+
+    ldx multiplicand_index              ;
+    ldy #multiplicand                   ;
+    jsr copy2_to_zp                     ;
+
+    lda #16                             ; set binary count to 32
+    sta counter                         ;
+    lda #0                              ;
+    sta product + 2                     ; clear upper half of product
+    sta product + 3                     ;
+-
+    lsr multiplier + 1                  ; shift multiplier right
+    ror multiplier + 0                  ;
+    bcc +                               ; go rotate right if c = 0
+
+    lda product + 2                     ; get upper half of product and add multiplicand to it
+    clc                                 ;
+    adc multiplicand                    ;
+    sta product + 2                     ;
+
+    lda product + 3                     ;
+    adc multiplicand + 1                ;
+
++
+    ror                                 ; rotate partial product right
+    sta product + 3                     ;
+    ror product + 2                     ;
+    ror product + 1                     ;
+    ror product + 0                     ;
+    dec counter                         ; decrement bit count and
+    bne -                               ; loop until 16 bits are done
+
+    ; copy result (4 bytes)
+    ldx product_index                   ;
+    ldy #3                              ;
+-
+    lda product,Y                       ;
+    sta variables_start + 3,X           ;
+    dex                                 ;
+    dey                                 ;
+    bpl -                               ;
+return1
+    rts                                 ;
+
+; ***************************************************************************************
+;
+; add_point
+;
+; On Entry:
+;    A      = current direction ('dir')
+;    X      = quadrant
+;    Y      = X variable to add
+;
+; ***************************************************************************************
+add_point
+    sta dir                             ;
+    stx quadrant                        ;
+    sty variable                        ;
+
+    lda centrex                         ;
+    clc                                 ;
+    adc variables_start,y               ;
+    sta newx                            ; newx = centrex + variable[y]
+    lda centrex+1                       ;
+    adc variables_start+1,y             ;
+    sta newx+1                          ;
+
+    lda centrey                         ;
+    clc                                 ;
+    adc y                               ;
+    sta newy                            ;
+    lda centrey+1                       ; newy = centrey + y
+    adc y+1                             ;
+    sta newy + 1                        ;
+
+    jsr add_point_quadrant              ;
+
+    lda y                               ;
+    ora y + 1                           ;
+    beq return1                         ; IF (Y=0) return
+
+
+    ldy variable                        ;
+    lda centrex                         ;
+    sec                                 ;
+    sbc variables_start,y               ;
+    sta newx                            ; newx = centrex - variable[y]
+    lda centrex+1                       ;
+    sbc variables_start+1,y             ;
+    sta newx+1                          ;
+
+    lda centrey                         ;
+    sec                                 ;
+    sbc y                               ;
+    sta newy                            ;
+    lda centrey+1                       ; newy = centrey - y
+    sbc y+1                             ;
+    sta newy + 1                        ;
+
+
+    lda #3                              ;
+    sec                                 ;
+    sbc quadrant                        ;
+    sta quadrant                        ; quadrant = 3-quadrant
+
+    lda #8                              ;
+    sec                                 ;
+    sbc dir                             ;
+    sta dir                             ; dir = 8-dir
+    ; fall through...
+
+; ***************************************************************************************
+;
+; On Entry:
+;   quadrant is the quadrant of the ellipse to add to
+;   dir is the direction since the last point of the quadrant
+;   newx, newy are the 16 bit coordinates of the point to add
+;   state[quadrant] is the state of the processing:
+;       0   Calculate the address of the first point and draw it
+;       1   Draw the next point relative to the last
+;
+; ***************************************************************************************
+add_point_quadrant
+    ldx quadrant                        ;
+    lda state,x                         ;
+    bne state_one                       ; if (state[quadrant] == 1) { goto state_one }
+    ; fall through...
+
+; ***************************************************************************************
+;
+; Handle state zero
+;
+; On Entry:
+;   X = quadrant
+;   newx, newy are the 16 bit coordinates of the point to add
+;
+; ***************************************************************************************
+state_zero
+    lda newy                            ;
+    and #7                              ;
+    sta offsetWithinCharacterRow        ;
+    lda newy+1                          ;
+    sta tempYHigh                       ; A/tempYHigh = newy
+
+    lda newy                            ;
+    lsr tempYHigh                       ;
+    ror                                 ;
+    lsr tempYHigh                       ;
+    ror                                 ;
+    lsr tempYHigh                       ;
+    ror                                 ;
+
+    clc                                 ;
+    adc #$60                            ;
+    sta screenAddrHigh,x                ;
+
+    lda newx                            ;
+    and #%11111000                      ; offset in bytes from the start of the row
+    clc                                 ;
+    adc offsetWithinCharacterRow        ;
+    sta screenAddrLow,x                 ;
+    sta screen_low                      ;
+    lda newx+1                          ;
+    adc screenAddrHigh,x                ;
+    sta screenAddrHigh,x                ;
+    sta screen_high                     ;
+
+    lda newx                            ;
+    and #%00000111                      ; set mask,x based on horizontal position AND 7
+    tay                                 ;
+    lda bitset,y                        ;
+    sta mask,x                          ;
+
+    lda newx+1                          ;
+    ora newy+1                          ; clipping
+    bne clipped0                        ;
+
+    ldy #0                              ;
+    lda (screen_low),y                  ;
+    eor mask,x                          ; write pixel
+    sta (screen_low),y                  ;
+
+clipped0
+    lda #1                              ;
+    sta state,x                         ; state[quadrant] = 1;
+    rts                                 ;
+
+; ***************************************************************************************
+;
+; Handle state one
+;
+; On Entry:
+;   X = quadrant
+;   dir = direction
+;   newx, newy are the 16 bit coordinates of the point to add
+;
+; ***************************************************************************************
+state_one
+    lda screenAddrLow,x                 ;
+    sta screen_low                      ;
+    lda screenAddrHigh,x                ;
+    sta screen_high                     ; copy current address from main memory into zp cache
+
+    ; Test dx
+    ldy dir                             ;
+    lda dx,y                            ;
+    bmi move_left                       ;
+    beq test_dy                         ;
+
+move_right
+    lsr mask,x                          ;
+    bcc test_dy                         ;
+    lda #128                            ;
+    sta mask,x                          ;
+    lda screen_low                      ;
+    clc                                 ;
+    adc #8                              ;
+    sta screen_low                      ;
+    bcc test_dy                         ; }
+    inc screen_high                     ; } needed to keep address straight for clipping purposes
+
+    ; Test dy
+test_dy
+    lda dy,y                            ;
+    bmi move_up                         ;
+    beq write_pixel                     ;
+move_down
+    inc screen_low                      ;
+    lda screen_low                      ;
+    and #%00000111                      ;
+    bne write_pixel                     ; if not on row boundary, skip
+    inc screen_high                     ; increment high byte on row boundary
+    lda screen_low                      ;
+    sec                                 ;
+    sbc #8                              ;
+    sta screen_low                      ;
+
+write_pixel
+    lda newx+1                          ;
+    ora newy+1                          ; clipping
+    bne clipped                         ;
+
+    ldy #0                              ;
+    lda (screen_low),y                  ;
+    eor mask,x                          ; write pixel
+    sta (screen_low),y                  ;
+
+clipped
+    lda screen_low                      ;
+    sta screenAddrLow,x                 ;
+    lda screen_high                     ; restore current address back into main memory from zp cache
+    sta screenAddrHigh,x                ;
+    rts                                 ;
+
+move_left
+    asl mask,x                          ;
+    bcc test_dy                         ;
+    lda #1                              ;
+    sta mask,x                          ;
+    lda screen_low                      ;
+    sec                                 ;
+    sbc #8                              ;
+    sta screen_low                      ;
+    bcs test_dy                         ; }
+    dec screen_high                     ; } needed to keep address straight for clipping purposes
+    jmp test_dy                         ;
+
+move_up
+    lda screen_low                      ;
+    dec screen_low                      ;
+    and #%00000111                      ;
+    bne write_pixel                     ; if not on row boundary, skip
+    lda screen_low                      ;
+    clc                                 ;
+    adc #8                              ;
+    sta screen_low                      ;
+    dec screen_high                     ;
+    jmp write_pixel                     ;
+
+; ***************************************************************************************
+state
+    !byte 0,0,0,0
+screenAddrLow
+    !byte 0,0,0,0
+screenAddrHigh
+    !byte 0,0,0,0
+mask
+    !byte 0,0,0,0
+
+bitset
+    !byte %10000000
+    !byte %01000000
+    !byte %00100000
+    !byte %00010000
+    !byte %00001000
+    !byte %00000100
+    !byte %00000010
+    !byte %00000001
+
+; ***************************************************************************************
+variables_start
+
+; inputs
+centrex
+    !word 128
+centrey
+    !word 128
+a
+    !word 58
+b
+    !word 100
+zero
+    !word 0         ; padding (always zero), used to make multiply32 work on b
+s
+    !le32 -20       ; note: 32 bit (TODO is 32 bits needed?)
+
+
+; workspace variables
+xl
+    !word 0
+xr
+    !word 0
+xwidth
+    !word 0
+oxl
+    !word 0
+oxr
+    !word 0
+y
+    !word 0
+aa
+    !le32 0
+bb
+    !le32 0
+
+abb
+    !le32 0
+bb_scaled
+    !le32 0
+aa_scaled
+    !le32 0
+t2
+    !le32 0
+dr
+    !le32 0
+ddr
+    !le32 0
+fr
+    !le32 0
+ec
+    !word 0
+xc
+    !word 0
+newx
+    !word 0
+newy
+    !word 0
+increment
+    !word 0
+increment_s
+    !word 0
+x
+    !word 0
+
+eight
+    !word 8
+
+
+; ***************************************************************************************
+; static data
+; ***************************************************************************************
+dx
+    !byte -1, 0, 1, -1, 0, 1, -1, 0, 1
+dy
+    !byte -1,-1,-1,0,0,0,1,1,1
+
+; ***************************************************************************************
+set_mode
+    ldx #0                                  ;
+-
+    lda set_mode_data,x                     ;
+    jsr OSWRCH                              ;
+    inx                                     ;
+    cpx #set_mode_data_end - set_mode_data  ;
+    bne -                                   ;
+    rts                                     ;
+
+set_mode_data
+    !byte 22, 4             ; Switch to screen mode 4
+
+    !byte 23, 0, 6, 32      ; Set 6845 register R6 = 32
+    !byte 0, 0, 0           ;
+    !byte 0, 0, 0           ; This is the "vertical displayed" register, and sets
+                            ; the number of displayed character rows to 32.
+
+    !byte 23, 0, 12, $0C    ; Set 6845 register R12 = $0C and R13 = $00
+    !byte 0, 0, 0           ;
+    !byte 0, 0, 0           ; This sets 6845 registers (R12 R13) = $0C00 to point
+    !byte 23, 0, 13, $00    ; to the start of screen memory in terms of character
+    !byte 0, 0, 0           ; rows. There are 8 pixel lines in each character row,
+    !byte 0, 0, 0           ; so to get the actual address of the start of screen
+                            ; memory, we multiply by 8:
+                            ;
+                            ;   $0C00 * 8 = $6000
+                            ;
+                            ; So this sets the start of screen memory to $6000
+
+    !byte 23, 0, 1, 32      ; Set 6845 register R1 = 32
+    !byte 0, 0, 0           ;
+    !byte 0, 0, 0           ; This is the "horizontal displayed" register, which
+                            ; defines the number of character blocks per horizontal
+                            ; character row. For comparison, this value is 40 for
+                            ; modes 4 and 5, but our custom screen is not as wide at
+                            ; only 32 character blocks across
+
+    !byte 23, 0, 2, 45      ; Set 6845 register R2 = 45
+    !byte 0, 0, 0           ;
+    !byte 0, 0, 0           ; This is the "horizontal sync position" register, which
+                            ; defines the position of the horizontal sync pulse on
+                            ; the horizontal line in terms of character widths from
+                            ; the left-hand side of the screen. For comparison this
+                            ; is 49 for modes 4 and 5, but needs to be adjusted for
+                            ; our custom screen's width
+
+    !byte 23, 0, 10, 32     ; Set 6845 register R10 = 32
+    !byte 0, 0, 0           ;
+    !byte 0, 0, 0           ; This is the "cursor start" register, so this sets the
+                            ; cursor start line at 0, effectively disabling the
+                            ; cursor
+
+    !byte 31,0,7            ; move the text cursor home
+set_mode_data_end
+
+timer_block
+    !byte 0,0,0,0,0         ; TIME value to set
+
+reset_timer
+    lda #2                  ;
+    ldx #<timer_block       ;
+    ldy #>timer_block       ;
+    jmp OSWORD              ; set TIME
