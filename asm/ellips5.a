@@ -2,16 +2,32 @@ OSWRCH = $ffee
 OSBYTE = $fff4
 OSWORD = $fff1
 
-counter      = $70
-multiplier   = $71
-multiplicand = $75
-product      = $79
-
+; for multiply routines...
+counter                     = $70
+multiplier                  = $71
+multiplicand                = $75
+product                     = $79
 result_index                = $81
 product_index               = $81
 param1_index                = $82
 multiplicand_index          = $82
 multiplier_index            = $83
+
+; for divide...
+divisor                     = $70       ; $71 used for high byte
+dividend                    = $72       ; $73 used for high byte
+remainder                   = $74       ; $75 used for high byte
+result                      = dividend  ; save memory by reusing divident to store the result
+divisor_index               = $76       ; index into variables for dividend
+
+; for sqrt...
+number_low                  = $70               ; number to find square root of low byte
+number_high                 = number_low + 1    ; number to find square root of high byte
+rem_low                     = $72               ; remainder low byte
+rem_high                    = rem_low + 1       ; remainder high byte
+temp_low                    = $74               ; temp partial low byte
+temp_high                   = temp_low + 1      ; temp partial high byte
+root                        = $76               ; square root
 
 quadrant                    = $85
 dir                         = $86
@@ -439,7 +455,7 @@ multiply32
     stx multiplicand_index              ;
     sty product_index                   ;
 
-    tax
+    tax                                 ;
     ldy #multiplier                     ;
     jsr copy4_to_zp                     ;
 
@@ -904,8 +920,127 @@ multiply16
     dex                                 ;
     dey                                 ;
     bpl -                               ;
-return1
     rts                                 ;
+
+; ***************************************************************************************
+;
+; From https://codebase64.org/doku.php?id=base:16bit_division_16-bit_result
+;
+; Y = A / X
+;
+; divides two 16 bit unsigned integers into a 16 bit result
+;
+; On Entry:
+;   The registers are the byte offsets from variables_start to the variables:
+;   A = dividend        (2 bytes)
+;   X = divisor         (2 bytes)
+;   Y = result          (2 bytes)
+;
+; ***************************************************************************************
+divide16
+    stx divisor_index                   ;
+    sty result_index                    ;
+
+    tax                                 ;
+    ldy #dividend                       ;
+    jsr copy2_to_zp                     ;
+
+    ldx divisor_index                   ;
+    ldy #divisor                        ;
+    jsr copy2_to_zp                     ;
+
+    lda #0                              ; preset remainder to 0
+    sta remainder                       ;
+    sta remainder+1                     ;
+    ldx #16                             ; repeat for each bit: ...
+
+divloop
+    asl dividend                        ; dividend lb & hb*2, msb -> Carry
+    rol dividend+1                      ;
+    rol remainder                       ; remainder lb & hb * 2 + msb from carry
+    rol remainder+1                     ;
+    lda remainder                       ;
+    sec                                 ;
+    sbc divisor                         ; substract divisor to see if it fits in
+    tay                                 ; lb result -> Y, for we may need it later
+    lda remainder+1                     ;
+    sbc divisor+1                       ;
+    bcc skip                            ; if carry=0 then divisor didn't fit in yet
+
+    sta remainder+1                     ; else save substraction result as new remainder,
+    sty remainder                       ;
+    inc dividend                        ; and INCrement result cause divisor fit in 1 times
+
+skip
+    dex                                 ;
+    bne divloop                         ;
+
+    ldy result_index                    ;
+    lda dividend                        ;
+    sta variables_start,y               ;
+    lda dividend + 1                    ;
+    sta variables_start + 1,y           ;
+    rts                                 ;
+
+
+; ***************************************************************************************
+;
+; From https://codebase64.org/doku.php?id=base:fast_sqrt
+;
+; A = SQRT(variables[x])
+;
+; On Entry:
+;   X is the index into the variables_start for the 16 bit number to root
+;
+; On Exit:
+;   A is the square root of the input number (8 bits)
+;
+; ***************************************************************************************
+sqrt16
+    lda variables_start,x       ;
+    sta number_low              ;
+    lda variables_start + 1,x   ;
+    sta number_high             ;
+
+    ldy #0                      ; r = 0
+    ldx #7                      ;
+    clc                         ; clear bit 16 of m
+loop
+    tya                         ;
+    ora stab-1,x                ;
+    sta temp_high               ; (r asl 8) | (d asl 7)
+    lda number_high             ;
+    bcs skip0                   ; m >= 65536? then t <= m is always true
+    cmp temp_high               ;
+    bcc skip1                   ; t <= m
+skip0
+    sbc temp_high               ;
+    sta number_high             ; m = m - t
+    tya                         ;
+    ora stab,x                  ;
+    tay                         ; r = r or d
+skip1
+    asl number_low              ;
+    rol number_high             ; m = m asl 1
+    dex                         ;
+    bne loop                    ;
+
+    ; last iteration
+    bcs skip2                   ;
+    sty temp_high               ;
+    lda number_low              ;
+    cmp #$80                    ;
+    lda number_high             ;
+    sbc temp_high               ;
+    bcc skip3                   ;
+skip2
+    iny                         ; r = r or d (d is 1 here)
+skip3
+    tya                         ; output in A
+return1
+    rts                         ;
+stab
+    !byte $01,$02,$04,$08,$10,$20,$40,$80
 
 ; ***************************************************************************************
 ;
@@ -1170,8 +1305,10 @@ centrex
     !word 128
 centrey
     !word 128
+axis_a
 a
     !word 58
+axis_b
 b
     !word 100
 zero
@@ -1356,6 +1493,28 @@ x_pressed
     jsr inc_a               ;
     jmp next_key1           ;
 
+a_pressed
+    dec changed             ;
+    lda s                   ;
+    clc                     ;
+    adc #4                  ;
+    sta s                   ;
+    bcc +                   ;
+    inc s+1                 ;
++
+    jmp next_key1           ;
+
+s_pressed
+    dec changed             ;
+    lda s                   ;
+    sec                     ;
+    sbc #4                  ;
+    sta s                   ;
+    bcs +                   ;
+    dec s+1                 ;
++
+    jmp next_key1           ;
+
 colon_pressed
     dec changed             ;
     jsr inc_b               ;
@@ -1379,6 +1538,14 @@ check_keys
     jsr check_key           ;
     beq x_pressed           ;
 
+    ldx #$be                ; Look for 'A'
+    jsr check_key           ;
+    beq a_pressed           ;
+
+    ldx #$ae                ; Look for 'S'
+    jsr check_key           ;
+    beq s_pressed           ;
+
 next_key1
     ldx #$b7                ; Look for ':'
     jsr check_key           ;
@@ -1399,54 +1566,48 @@ next_key2
     rts                     ;
 
 dec_a
-    lda a                   ;
+    lda axis_a              ;
     sec                     ;
     sbc #4                  ;
-    bcc +                   ;
     beq +                   ;
-    sta a                   ;
-    rts                     ;
+    bcs ++                  ;
 +
     lda #1                  ;
-    sta a                   ;
+++
+    sta axis_a              ;
     rts
 
 inc_a
-    lda a                   ;
+    lda axis_a              ;
     clc                     ;
     adc #4                  ;
-    bcs +                   ;
-    sta a                   ;
-    rts                     ;
+    bcc +                   ;
+    lda #255                ;
 +
-    lda #1                  ;
-    sta a                   ;
-    rts
+    sta axis_a              ;
+    rts                     ;
 
 dec_b
-    lda b                   ;
+    lda axis_b              ;
     sec                     ;
     sbc #4                  ;
-    bcc +                   ;
     beq +                   ;
-    sta b                   ;
-    rts                     ;
+    bcs ++                  ;
 +
     lda #1                  ;
-    sta b                   ;
-    rts
+++
+    sta axis_b              ;
+    rts                     ;
 
 inc_b
-    lda b                   ;
+    lda axis_b              ;
     clc                     ;
     adc #4                  ;
-    bcs +                   ;
-    sta b                   ;
-    rts                     ;
+    bcc +                   ;
+    lda #255                ;
 +
-    lda #1                  ;
-    sta b                   ;
-    rts
+    sta axis_b              ;
+    rts                     ;
 
 
 
