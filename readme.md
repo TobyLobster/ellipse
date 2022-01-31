@@ -33,12 +33,12 @@ Controls:
 
 A progression of versions is presented:
 
-| version | 6502 code in emulator | time (centiseconds) | notes                    |
-| ------- | --------------------- | ------------------: | ------------------------ |
-| Ellips0 | [6502 code in emulator](https://bbc.godbolt.org/?autoboot&disc=https://raw.githubusercontent.com/TobyLobster/ellipse/main/ELLIPS0.SSD) | 70cs | Draws individual pixels using the Operating System to do so. |
-| Ellips1 | [6502 code in emulator](https://bbc.godbolt.org/?autoboot&disc=https://raw.githubusercontent.com/TobyLobster/ellipse/main/ELLIPS1.SSD) | 61cs | Draws horizontal, vertical and 45 degree lines using the Operating System to do so. |
-| Ellips2 | [6502 code in emulator](https://bbc.godbolt.org/?autoboot&disc=https://raw.githubusercontent.com/TobyLobster/ellipse/main/ELLIPS2.SSD) | 48cs | Draws lines of all angles using the Operating System to do so. See [rendering fewer lines](./fewer_lines.md). |
-| Ellips3 | [6502 code in emulator](https://bbc.godbolt.org/?autoboot&disc=https://raw.githubusercontent.com/TobyLobster/ellipse/main/ELLIPS3.SSD) | 24cs | Writes individual bytes directly to screen memory... |
-| Ellips4 | [6502 code in emulator](https://bbc.godbolt.org/?autoboot&disc=https://raw.githubusercontent.com/TobyLobster/ellipse/main/ELLIPS4.SSD) |  8cs | ... Also uses an approximate ellipse using only 16 bit arithmetic in the main loop |
-| Ellips5 | [6502 code in emulator](https://bbc.godbolt.org/?autoboot&disc=https://raw.githubusercontent.com/TobyLobster/ellipse/main/ELLIPS5.SSD) |  8cs | ... Made interactive (see controls below) |
+| version | execute in browser | time (centiseconds) | notes                    |
+| ------- | ------------------ | ------------------: | ------------------------ |
+| Ellips0 | [here in browser](https://bbc.godbolt.org/?autoboot&disc=https://raw.githubusercontent.com/TobyLobster/ellipse/main/ELLIPS0.SSD) | 70cs | Draws individual pixels using the Operating System to do so. |
+| Ellips1 | [here in browser](https://bbc.godbolt.org/?autoboot&disc=https://raw.githubusercontent.com/TobyLobster/ellipse/main/ELLIPS1.SSD) | 61cs | Draws horizontal, vertical and 45 degree lines using the Operating System to do so. |
+| Ellips2 | [here in browser](https://bbc.godbolt.org/?autoboot&disc=https://raw.githubusercontent.com/TobyLobster/ellipse/main/ELLIPS2.SSD) | 48cs | Draws lines of all angles using the Operating System to do so. See [rendering fewer lines](./fewer_lines.md). |
+| Ellips3 | [here in browser](https://bbc.godbolt.org/?autoboot&disc=https://raw.githubusercontent.com/TobyLobster/ellipse/main/ELLIPS3.SSD) | 24cs | Writes individual bytes directly to screen memory... |
+| Ellips4 | [here in browser](https://bbc.godbolt.org/?autoboot&disc=https://raw.githubusercontent.com/TobyLobster/ellipse/main/ELLIPS4.SSD) |  8cs | ... and uses an approximate ellipse using only 16 bit arithmetic in the main loop |
+| Ellips5 | [here in browser](https://bbc.godbolt.org/?autoboot&disc=https://raw.githubusercontent.com/TobyLobster/ellipse/main/ELLIPS5.SSD) |  8cs | ... and made interactive (see controls below) |
 
