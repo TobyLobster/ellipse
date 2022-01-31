@@ -12,7 +12,7 @@ sort <build/ELLIPS5.tmp | uniq >build/ELLIPS5.sym
 rm build/ELLIPS5.tmp
 
 # Create !BOOT file
-printf "*BASIC\rPAGE=&1900\r*FX21\rCLOSE#0:MODE 1:OSCLI(\"LOAD ELLIPS5\"):TIME=0:CALL&2400:PRINT TIME\r" >build/disk/\!BOOT
+printf "*BASIC\rPAGE=&1900\r*FX21\rCLOSE#0:MODE 1:OSCLI(\"LOAD ELLIPS5\"):TIME=0:CALL&2000:PRINT TIME\r" >build/disk/\!BOOT
 
 # Create BASIC program
 #python tools/basiclabel.py -s 10 -i 10 ./asm/basic.txt build/basic_out.txt
@@ -26,7 +26,7 @@ echo "$.!BOOT     FFFF1900 FFFF1900 $myfilesizehex" >build/disk/\!BOOT.INF
 # Create INF file for ELLIPS5
 myfilesize=$(stat -f %z "build/disk/ELLIPS5")
 myfilesizehex=$(printf '%x\n' $myfilesize)
-echo "$.ELLIPS5   FFFF2400 FFFF2400 $myfilesizehex" >build/disk/ELLIPS5.INF
+echo "$.ELLIPS5   FFFF2000 FFFF2000 $myfilesizehex" >build/disk/ELLIPS5.INF
 
 # Create INF file for BASIC
 #myfilesize=$(stat -f %z "build/disk/BASIC")

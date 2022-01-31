@@ -41,7 +41,7 @@ offsetWithinCharacterRow    = $8d
 variable                    = $8e
 temp                        = $8f
 
-* = $2400
+* = $2000
 
 ; ***************************************************************************************
 !macro macro_add16 .r, .a, .b {
@@ -1001,27 +1001,29 @@ sqrt16
     sta number_low              ;
     lda variables_start + 1,x   ;
     sta number_high             ;
-
-    ldy #0                      ; r = 0
-    ldx #7                      ;
-    clc                         ; clear bit 16 of m
+sqrt16a
+    ldy #0                      ; root = 0
+    ldx #7                      ; loop counter from 7 to 1
+    clc                         ; clear carry, bit 16 of number
 loop
     tya                         ;
     ora stab-1,x                ;
-    sta temp_high               ; (r asl 8) | (d asl 7)
+    sta temp_high               ; temp_high = root OR 2^X   OLD NOTE: (root asl 8) | (d asl 7)
+
+    ; Compare number_high with temp_high
     lda number_high             ;
-    bcs skip0                   ; m >= 65536? then t <= m is always true
+    bcs skip0                   ; if number >= 65536 then t <= number is always true
     cmp temp_high               ;
-    bcc skip1                   ; t <= m
+    bcc skip1                   ; t <= number
 skip0
     sbc temp_high               ;
-    sta number_high             ; m = m - t
+    sta number_high             ; number = number - t
     tya                         ;
     ora stab,x                  ;
-    tay                         ; r = r or d
+    tay                         ; root = root or d
 skip1
     asl number_low              ;
-    rol number_high             ; m = m asl 1
+    rol number_high             ; number = number * 2 (with carry as bit 16)
     dex                         ;
     bne loop                    ;
 
@@ -1034,7 +1036,7 @@ skip1
     sbc temp_high               ;
     bcc skip3                   ;
 skip2
-    iny                         ; r = r or d (d is 1 here)
+    iny                         ; root = root or d (d is 1 here)
 skip3
     tya                         ; output in A
 return1
@@ -1305,10 +1307,8 @@ centrex
     !word 128
 centrey
     !word 128
-axis_a
 a
     !word 58
-axis_b
 b
     !word 100
 zero
@@ -1370,6 +1370,26 @@ x
 eight
     !word 8
 
+; Friendly parameters
+axis_a
+    !le32 100
+axis_b
+    !le32 58
+angle_c
+    !byte 0
+
+majaxis
+    !le32 0
+minaxis
+    !le32 0
+angle
+    !byte 0
+
+; temporaries
+sinang = aa
+cosang = bb
+temp1  = abb
+temp2  = bb_scaled
 
 ; ***************************************************************************************
 ; static data
@@ -1450,265 +1470,260 @@ reset_timer
 ; ***************************************************************************************
 ; ***************************************************************************************
 interactive
-    lda #255                ;
-    sta changed             ;
+    lda #255                    ;
+    sta changed                 ;
 
 check_redraw
-    lda changed             ;
-    beq later               ;
-    lda #0                  ;
-    sta changed             ;
+    lda changed                 ;
+    beq later                   ;
+    lda #0                      ;
+    sta changed                 ;
 
     ; swap screen to write to
-    lda screen_to_write_to  ;
-    eor #$20                ;
-    sta screen_to_write_to  ;
+    lda screen_to_write_to      ;
+    eor #$20                    ;
+    sta screen_to_write_to      ;
 
-    jsr clear_screen        ;
-    jsr draw_ellipse        ;
+    jsr clear_screen            ;
+    jsr calculate_parameters    ;
+    jsr draw_ellipse            ;
 
     ; swap screen shown (sets screen start address)
     jsr set_screen_start_address    ;
 
 later
-    jsr check_keys          ;
-    lda escape              ;
-    bpl check_redraw        ;
-    rts                     ;
+    jsr check_keys              ;
+    lda escape                  ;
+    bpl check_redraw            ;
+    rts                         ;
 
 check_key
-    lda #129                ;
-    ldy #$ff                ;
-    jsr OSBYTE              ;
-    cpy #$ff                ;
-    rts                     ;
+    lda #129                    ;
+    ldy #$ff                    ;
+    jsr OSBYTE                  ;
+    cpy #$ff                    ;
+    rts                         ;
 
 z_pressed
-    dec changed             ;
-    jsr dec_a               ;
-    jmp next_key1           ;
+    dec changed                 ;
+    jsr dec_a                   ;
+    jmp next_key1               ;
 
 x_pressed
-    dec changed             ;
-    jsr inc_a               ;
-    jmp next_key1           ;
+    dec changed                 ;
+    jsr inc_a                   ;
+    jmp next_key1               ;
 
 a_pressed
-    dec changed             ;
-    lda s                   ;
-    clc                     ;
-    adc #4                  ;
-    sta s                   ;
-    bcc +                   ;
-    inc s+1                 ;
-+
-    jmp next_key1           ;
+    dec changed                 ;
+    lda angle_c                 ;
+    clc                         ;
+    adc #4                      ;
+    sta angle_c                 ;
+    jmp next_key1               ;
 
 s_pressed
-    dec changed             ;
-    lda s                   ;
-    sec                     ;
-    sbc #4                  ;
-    sta s                   ;
-    bcs +                   ;
-    dec s+1                 ;
-+
-    jmp next_key1           ;
+    dec changed                 ;
+    lda angle_c                 ;
+    sec                         ;
+    sbc #4                      ;
+    sta angle_c                 ;
+    jmp next_key1               ;
 
 colon_pressed
-    dec changed             ;
-    jsr inc_b               ;
-    jmp next_key2           ;
+    dec changed                 ;
+    jsr inc_b                   ;
+    jmp next_key2               ;
 
 fslash_pressed
-    dec changed             ;
-    jsr dec_b               ;
-    jmp next_key2           ;
+    dec changed                 ;
+    jsr dec_b                   ;
+    jmp next_key2               ;
 
 escape_pressed
-    dec escape              ;
-    rts                     ;
+    dec escape                  ;
+    rts                         ;
 
 check_keys
-    ldx #$9e                ; Look for 'Z'
-    jsr check_key           ;
-    beq z_pressed           ;
+    ldx #$9e                    ; Look for 'Z'
+    jsr check_key               ;
+    beq z_pressed               ;
 
-    ldx #$bd                ; Look for 'X'
-    jsr check_key           ;
-    beq x_pressed           ;
+    ldx #$bd                    ; Look for 'X'
+    jsr check_key               ;
+    beq x_pressed               ;
 
-    ldx #$be                ; Look for 'A'
-    jsr check_key           ;
-    beq a_pressed           ;
+    ldx #$be                    ; Look for 'A'
+    jsr check_key               ;
+    beq a_pressed               ;
 
-    ldx #$ae                ; Look for 'S'
-    jsr check_key           ;
-    beq s_pressed           ;
+    ldx #$ae                    ; Look for 'S'
+    jsr check_key               ;
+    beq s_pressed               ;
 
 next_key1
-    ldx #$b7                ; Look for ':'
-    jsr check_key           ;
-    beq colon_pressed       ;
+    ldx #$b7                    ; Look for ':'
+    jsr check_key               ;
+    beq colon_pressed           ;
 
-    ldx #$97                ; Look for '/'
-    jsr check_key           ;
-    beq fslash_pressed      ;
+    ldx #$97                    ; Look for '/'
+    jsr check_key               ;
+    beq fslash_pressed          ;
 
-    ldx #$97                ; Look for '/'
-    jsr check_key           ;
-    beq fslash_pressed      ;
+    ldx #$97                    ; Look for '/'
+    jsr check_key               ;
+    beq fslash_pressed          ;
 
 next_key2
-    ldx #$8f                ; Look for 'ESCAPE'
-    jsr check_key           ;
-    beq escape_pressed      ;
-    rts                     ;
+    ldx #$8f                    ; Look for 'ESCAPE'
+    jsr check_key               ;
+    beq escape_pressed          ;
+    rts                         ;
 
 dec_a
-    lda axis_a              ;
-    sec                     ;
-    sbc #4                  ;
-    beq +                   ;
-    bcs ++                  ;
+    lda axis_a                  ;
+    sec                         ;
+    sbc #4                      ;
+    cmp #8                      ;
+    bcs ++                      ;
 +
-    lda #1                  ;
+    lda #8                      ;
 ++
-    sta axis_a              ;
+    sta axis_a                  ;
     rts
 
 inc_a
-    lda axis_a              ;
-    clc                     ;
-    adc #4                  ;
-    bcc +                   ;
-    lda #255                ;
+    lda axis_a                  ;
+    clc                         ;
+    adc #4                      ;
+    bcc +                       ;
+    lda #255                    ;
 +
-    sta axis_a              ;
-    rts                     ;
+    sta axis_a                  ;
+    rts                         ;
 
 dec_b
-    lda axis_b              ;
-    sec                     ;
-    sbc #4                  ;
-    beq +                   ;
-    bcs ++                  ;
+    lda axis_b                  ;
+    sec                         ;
+    sbc #4                      ;
+    cmp #8                      ;
+    bcs ++                      ;
 +
-    lda #1                  ;
+    lda #8                      ;
 ++
-    sta axis_b              ;
-    rts                     ;
+    sta axis_b                  ;
+    rts                         ;
 
 inc_b
-    lda axis_b              ;
-    clc                     ;
-    adc #4                  ;
-    bcc +                   ;
-    lda #255                ;
+    lda axis_b                  ;
+    clc                         ;
+    adc #4                      ;
+    bcc +                       ;
+    lda #255                    ;
 +
-    sta axis_b              ;
-    rts                     ;
+    sta axis_b                  ;
+    rts                         ;
 
 
 
 clear_screen
-    lda screen_to_write_to  ;
-    cmp #$60                ;
-    bne fast_screen_clear40 ;
+    lda screen_to_write_to      ;
+    cmp #$60                    ;
+    bne fast_screen_clear40     ;
 
 fast_screen_clear60
-    lda #0                  ;
-    tax                     ;
+    lda #0                      ;
+    tax                         ;
 -
-    sta $6000,x             ;
-    sta $6100,x             ;
-    sta $6200,x             ;
-    sta $6300,x             ;
-    sta $6400,x             ;
-    sta $6500,x             ;
-    sta $6600,x             ;
-    sta $6700,x             ;
-    sta $6800,x             ;
-    sta $6900,x             ;
-    sta $6a00,x             ;
-    sta $6b00,x             ;
-    sta $6c00,x             ;
-    sta $6d00,x             ;
-    sta $6e00,x             ;
-    sta $6f00,x             ;
-    sta $7000,x             ;
-    sta $7100,x             ;
-    sta $7200,x             ;
-    sta $7300,x             ;
-    sta $7400,x             ;
-    sta $7500,x             ;
-    sta $7600,x             ;
-    sta $7700,x             ;
-    sta $7800,x             ;
-    sta $7900,x             ;
-    sta $7a00,x             ;
-    sta $7b00,x             ;
-    sta $7c00,x             ;
-    sta $7d00,x             ;
-    sta $7e00,x             ;
-    sta $7f00,x             ;
-    inx                     ;
-    bne -                   ;
-    rts                     ;
+    sta $6000,x                 ;
+    sta $6100,x                 ;
+    sta $6200,x                 ;
+    sta $6300,x                 ;
+    sta $6400,x                 ;
+    sta $6500,x                 ;
+    sta $6600,x                 ;
+    sta $6700,x                 ;
+    sta $6800,x                 ;
+    sta $6900,x                 ;
+    sta $6a00,x                 ;
+    sta $6b00,x                 ;
+    sta $6c00,x                 ;
+    sta $6d00,x                 ;
+    sta $6e00,x                 ;
+    sta $6f00,x                 ;
+    sta $7000,x                 ;
+    sta $7100,x                 ;
+    sta $7200,x                 ;
+    sta $7300,x                 ;
+    sta $7400,x                 ;
+    sta $7500,x                 ;
+    sta $7600,x                 ;
+    sta $7700,x                 ;
+    sta $7800,x                 ;
+    sta $7900,x                 ;
+    sta $7a00,x                 ;
+    sta $7b00,x                 ;
+    sta $7c00,x                 ;
+    sta $7d00,x                 ;
+    sta $7e00,x                 ;
+    sta $7f00,x                 ;
+    inx                         ;
+    bne -                       ;
+    rts                         ;
 
 fast_screen_clear40
-    lda #0                  ;
-    tax                     ;
+    lda #0                      ;
+    tax                         ;
 -
-    sta $4000,x             ;
-    sta $4100,x             ;
-    sta $4200,x             ;
-    sta $4300,x             ;
-    sta $4400,x             ;
-    sta $4500,x             ;
-    sta $4600,x             ;
-    sta $4700,x             ;
-    sta $4800,x             ;
-    sta $4900,x             ;
-    sta $4a00,x             ;
-    sta $4b00,x             ;
-    sta $4c00,x             ;
-    sta $4d00,x             ;
-    sta $4e00,x             ;
-    sta $4f00,x             ;
-    sta $5000,x             ;
-    sta $5100,x             ;
-    sta $5200,x             ;
-    sta $5300,x             ;
-    sta $5400,x             ;
-    sta $5500,x             ;
-    sta $5600,x             ;
-    sta $5700,x             ;
-    sta $5800,x             ;
-    sta $5900,x             ;
-    sta $5a00,x             ;
-    sta $5b00,x             ;
-    sta $5c00,x             ;
-    sta $5d00,x             ;
-    sta $5e00,x             ;
-    sta $5f00,x             ;
-    inx                     ;
-    bne -                   ;
-    rts                     ;
+    sta $4000,x                 ;
+    sta $4100,x                 ;
+    sta $4200,x                 ;
+    sta $4300,x                 ;
+    sta $4400,x                 ;
+    sta $4500,x                 ;
+    sta $4600,x                 ;
+    sta $4700,x                 ;
+    sta $4800,x                 ;
+    sta $4900,x                 ;
+    sta $4a00,x                 ;
+    sta $4b00,x                 ;
+    sta $4c00,x                 ;
+    sta $4d00,x                 ;
+    sta $4e00,x                 ;
+    sta $4f00,x                 ;
+    sta $5000,x                 ;
+    sta $5100,x                 ;
+    sta $5200,x                 ;
+    sta $5300,x                 ;
+    sta $5400,x                 ;
+    sta $5500,x                 ;
+    sta $5600,x                 ;
+    sta $5700,x                 ;
+    sta $5800,x                 ;
+    sta $5900,x                 ;
+    sta $5a00,x                 ;
+    sta $5b00,x                 ;
+    sta $5c00,x                 ;
+    sta $5d00,x                 ;
+    sta $5e00,x                 ;
+    sta $5f00,x                 ;
+    inx                         ;
+    bne -                       ;
+    rts                         ;
 
 ; ***************************************************************************************
 set_screen_start_address
-    lda #19                 ;
-    jsr OSBYTE              ; *FX 19
+    lda #19                     ;
+    jsr OSBYTE                  ; *FX 19
 
-    ldy #12                 ; Y = CRTC register to write into (0-15)
-    lda screen_to_write_to  ;
-    lsr                     ;
-    lsr                     ;
-    lsr                     ; A = value to write
-    sty $fe00               ; Write register number
-    sta $fe01               ; Write new value into register
-    rts                     ;
+    ldy #12                     ; Y = CRTC register to write into (0-15)
+    lda screen_to_write_to      ;
+    lsr                         ;
+    lsr                         ;
+    lsr                         ; A = value to write
+    sty $fe00                   ; Write register number
+    sta $fe01                   ; Write new value into register
+    rts                         ;
 
 changed
     !byte 0
@@ -1717,3 +1732,319 @@ escape
 screen_to_write_to
     !byte $40
 
+; ***************************************************************************************
+;
+; From http://forum.6502.org/viewtopic.php?p=5789#p5789
+;
+; SIN(A) COS(A) routines. a full circle is represented by $00 to
+; $00 in 256 1.40625 degree steps. returned value is signed 15
+; bit with X being the high byte and ranges over +/-0.99997
+
+; ***************************************************************************************
+;
+; get ABS(COS(A)) in AX
+;
+; ***************************************************************************************
+abs_cos_A
+    clc                         ; clear carry for add
+    adc #$40                    ; add 1/4 rotation
+    ; fall through...
+
+; ***************************************************************************************
+;
+; get ABS(SIN(A)) in AX
+;
+; ***************************************************************************************
+abs_sin_A
+    and #$7f                    ; make +ve
+    cmp #$41                    ; compare with max+1
+    bcc quadrant1               ; branch if less
+
+    eor #$7f                    ; wrap $41 to $7f ..
+    adc #0                      ; .. to $3f to $00
+
+quadrant1
+    tay                         ; copy to index
+    lda sintab_high,y           ; get SIN/COS table value high byte
+    ldx sintab_low,y            ; get SIN/COS table value low byte
+    rts                         ;
+
+; ***************************************************************************************
+;
+; SIN table. returns values between $0000 and $FFFF
+;
+; ***************************************************************************************
+sintab_high
+    !byte $00
+    !byte $06
+    !byte $0c
+    !byte $12
+    !byte $19
+    !byte $1f
+    !byte $25
+    !byte $2b
+    !byte $31
+    !byte $38
+    !byte $3e
+    !byte $44
+    !byte $4a
+    !byte $50
+    !byte $56
+    !byte $5c
+    !byte $61
+    !byte $67
+    !byte $6d
+    !byte $73
+    !byte $78
+    !byte $7e
+    !byte $83
+    !byte $88
+    !byte $8e
+    !byte $93
+    !byte $98
+    !byte $9d
+    !byte $a2
+    !byte $a7
+    !byte $ab
+    !byte $b0
+    !byte $b5
+    !byte $b9
+    !byte $bd
+    !byte $c1
+    !byte $c5
+    !byte $c9
+    !byte $cd
+    !byte $d1
+    !byte $d4
+    !byte $d8
+    !byte $db
+    !byte $de
+    !byte $e1
+    !byte $e4
+    !byte $e7
+    !byte $ea
+    !byte $ec
+    !byte $ee
+    !byte $f1
+    !byte $f3
+    !byte $f4
+    !byte $f6
+    !byte $f8
+    !byte $f9
+    !byte $fb
+    !byte $fc
+    !byte $fd
+    !byte $fe
+    !byte $fe
+    !byte $ff
+    !byte $ff
+    !byte $ff
+    !byte $ff
+
+sintab_low
+    !byte $00
+    !byte $48
+    !byte $8f
+    !byte $d5
+    !byte $17
+    !byte $56
+    !byte $8f
+    !byte $c3
+    !byte $f1
+    !byte $16
+    !byte $33
+    !byte $47
+    !byte $4f
+    !byte $4d
+    !byte $3e
+    !byte $21
+    !byte $f7
+    !byte $bd
+    !byte $73
+    !byte $19
+    !byte $ac
+    !byte $2e
+    !byte $9b
+    !byte $f5
+    !byte $39
+    !byte $67
+    !byte $7f
+    !byte $7f
+    !byte $66
+    !byte $35
+    !byte $ea
+    !byte $85
+    !byte $04
+    !byte $67
+    !byte $ae
+    !byte $d7
+    !byte $e3
+    !byte $d0
+    !byte $9e
+    !byte $4c
+    !byte $da
+    !byte $47
+    !byte $93
+    !byte $bd
+    !byte $c4
+    !byte $a9
+    !byte $6a
+    !byte $08
+    !byte $82
+    !byte $d7
+    !byte $08
+    !byte $13
+    !byte $f9
+    !byte $b9
+    !byte $52
+    !byte $c6
+    !byte $13
+    !byte $3a
+    !byte $39
+    !byte $12
+    !byte $c3
+    !byte $4d
+    !byte $b0
+    !byte $eb
+    !byte $ff
+
+; ***************************************************************************************
+;
+; Calculate (a,b,s) parameters for the draw_ellipse routine
+; We start with (majaxis, minmaxis, angle) and calculate using:
+;
+;    cosang = COS(angle)
+;    sinang = SIN(angle)
+;    b = SQR( (minaxis * cosang)^2 + (majaxis * sinang)^2 )
+;    s = (majaxis * majaxis - minaxis * minaxis) * cosang * sinang/b
+;    a = (majaxis * minaxis)/b
+;
+; ***************************************************************************************
+calculate_parameters
+    lda axis_a                          ;
+    cmp axis_b                          ;
+    lda axis_a + 1                      ;
+    sbc axis_b + 1                      ; compare axis_a with axis_b
+    bcs axis_a_is_bigger                ; if axis_a is larger, then branch
+
+    lda axis_a                          ; axis_a is the minor axis
+    sta minaxis                         ; axis_b is the major axis
+    lda axis_a + 1                      ;
+    sta minaxis+1                       ;
+    lda axis_b                          ;
+    sta majaxis                         ;
+    lda axis_b + 1                      ;
+    sta majaxis + 1                     ;
+    lda angle_c                         ;
+    clc                                 ; Rotate by 90 degrees since we swapped the minor and major axes
+    adc #$40                            ;
+    jmp +                               ;
+
+axis_a_is_bigger
+    lda axis_a                          ; axis_a is the major axis
+    sta majaxis                         ; axis_b is the minor axis
+    lda axis_a + 1                      ;
+    sta majaxis+1                       ;
+    lda axis_b                          ;
+    sta minaxis                         ;
+    lda axis_b + 1                      ;
+    sta minaxis + 1                     ;
+    lda angle_c                         ;
++
+    sta angle                           ;
+    jsr abs_cos_A                       ; }
+    stx cosang                          ; } cosang = 65535*ABS(COS(angle))
+    sta cosang + 1                      ; }
+
+    lda angle                           ; }
+    jsr abs_sin_A                       ; }
+    stx sinang                          ; } sinang = 65535*ABS(SIN(angle))
+    sta sinang + 1                      ; }
+
+    lda #minaxis - variables_start      ;
+    ldx #cosang - variables_start       ;
+    ldy #temp1 - variables_start        ;
+    jsr multiply16                      ; temp1 = minaxis * cosang
+
+    ; because cosang is 65535 times larger than the cos() function should be,
+    ; then temp1 (as a 32 bit quantity) is 65535 times as big as it should be
+    ; by copying the top two bytes to the lower two bytes and ignoring the top two bytes
+    ; we effectively divide by 65536 to normalise the result
+    +macro_copy16 temp1, temp1 + 2
+
+    lda #temp1 - variables_start        ;
+    ldx #temp1 - variables_start        ;
+    ldy #temp1 - variables_start        ;
+    jsr multiply16                      ; temp1 = temp1^2
+
+    lda #majaxis - variables_start      ;
+    ldx #sinang - variables_start       ;
+    ldy #temp2 - variables_start        ;
+    jsr multiply16                      ; temp2 = majaxis * sinang
+
+    ; because sinang is 65535 times larger than the sin() function should be,
+    ; we use the same argument as above to normalise the result
+    +macro_copy16 temp2, temp2 + 2
+
+    lda #temp2 - variables_start        ;
+    ldx #temp2 - variables_start        ;
+    ldy #temp2 - variables_start        ;
+    jsr multiply16                      ; temp2 = temp2^2
+
+    +macro_add16 temp1, temp1, temp2    ; temp1 += temp2
+
+    ldx #temp1 - variables_start        ;
+    jsr sqrt16                          ;
+    sta b                               ; b = SQRT(temp1)
+
+    lda #majaxis - variables_start      ;
+    ldx #majaxis - variables_start      ;
+    ldy #temp1 - variables_start        ;
+    jsr multiply16                      ; temp1 = majaxis^2
+
+    lda #minaxis - variables_start      ;
+    ldx #minaxis - variables_start      ;
+    ldy #temp2 - variables_start        ;
+    jsr multiply16                      ; temp2 = minaxis^2
+
+    +macro_subtract16 temp1, temp1, temp2    ; temp1 -= temp2
+
+    lda #temp1 - variables_start        ;
+    ldx #cosang - variables_start       ;
+    ldy #temp1 - variables_start        ;
+    jsr multiply16                      ; temp1 *= cosang
+    +macro_copy16 temp1, temp1 + 2      ; scale down
+
+    lda #temp1 - variables_start        ;
+    ldx #sinang - variables_start       ;
+    ldy #temp1 - variables_start        ;
+    jsr multiply16                      ; temp1 *= sinang
+    +macro_copy16 temp1, temp1 + 2      ; scale down
+
+    lda #temp1 - variables_start        ;
+    ldx #b - variables_start            ;
+    ldy #s - variables_start            ;
+    jsr divide16                        ; s = temp1 / b
+
+    lda #0                              ;
+    bit angle                           ;
+    bvc +                               ; adjust for the sign required
+    ldx #s - variables_start            ;
+    ldy #s - variables_start            ;
+    jsr negate16                        ; S = -S
+    lda #255                            ; extend the sign
++
+    sta s + 2                           ;
+    sta s + 3                           ;
+
+    lda #majaxis - variables_start      ;
+    ldx #minaxis - variables_start      ;
+    ldy #temp1 - variables_start        ;
+    jsr multiply16                      ; temp1 = maj_axis * minaxis
+
+    lda #temp1 - variables_start        ;
+    ldx #b - variables_start            ;
+    ldy #a - variables_start            ;
+    jsr divide16                        ; a = temp1 / b
+
+    rts                                 ;
