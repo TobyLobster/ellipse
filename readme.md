@@ -13,7 +13,7 @@ See [algorithm derivation](./algorithm_derivation/derivation.ipynb)
 Run Ellips2: [here in browser](https://bbc.godbolt.org/?autoboot&disc=https://raw.githubusercontent.com/TobyLobster/ellipse/main/ELLIPS2.SSD)
 
 In this incarnation, rendering is done by regular calls to the operating system to draw points and lines.
-A novel method is used to speed up rendering further. We draw the longest straight lines that render identically to the individual pixels that would normally be drawn. See [rendering fewer lines](./fewer_lines.md) for more information.
+A novel method is used to speed up rendering. We draw the longest straight lines that render identically to the individual pixels that would normally be drawn. See [rendering fewer lines](./fewer_lines.md) for more information.
 
 ## The 'Speedy' Ellipse
 
