@@ -42,3 +42,12 @@ A progression of versions is presented:
 | Ellips4 | [here in browser](https://bbc.godbolt.org/?autoboot&disc=https://raw.githubusercontent.com/TobyLobster/ellipse/main/ELLIPS4.SSD) |  8cs | ... and uses an approximate ellipse using only 16 bit arithmetic in the main loop |
 | Ellips5 | [here in browser](https://bbc.godbolt.org/?autoboot&disc=https://raw.githubusercontent.com/TobyLobster/ellipse/main/ELLIPS5.SSD) |  8cs | ... and made interactive (see controls below) |
 
+## Theoretical Timings
+
+To get an idea of what overhead the OS has, we render 65 straight lines (hardcoded) (a) using the OS, and (b) using the line drawing routine from Elite.
+These programs don't know how to draw an ellipse, they are just a hardcoded set of lines used as a simple rendering test.
+
+| version | execute in browser | time (centiseconds) | notes                    |
+| ------- | ------------------ | ------------------: | ------------------------ |
+| EllipsX | [here in browser](https://bbc.godbolt.org/?autoboot&disc=https://raw.githubusercontent.com/TobyLobster/ellipse/main/ELLIPSX.SSD) | 14cs | Draws 65 lines using the OS, as a test of how fast it could go in theory. |
+| EllipsY | [here in browser](https://bbc.godbolt.org/?autoboot&disc=https://raw.githubusercontent.com/TobyLobster/ellipse/main/ELLIPSY.SSD) |  3cs | Draws 65 lines using the Elite code, as a test of how fast it could go in theory. |
