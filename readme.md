@@ -50,4 +50,4 @@ These programs don't know how to draw an ellipse, they are just a hardcoded set 
 | version | execute in browser | time (centiseconds) | notes                    |
 | ------- | ------------------ | ------------------: | ------------------------ |
 | EllipsX | [here in browser](https://bbc.godbolt.org/?autoboot&disc=https://raw.githubusercontent.com/TobyLobster/ellipse/main/ELLIPSX.SSD) | 14cs | Draws 65 lines using the OS, as a test of how fast it could go in theory. |
-| EllipsY | [here in browser](https://bbc.godbolt.org/?autoboot&disc=https://raw.githubusercontent.com/TobyLobster/ellipse/main/ELLIPSY.SSD) |  3cs | Draws 65 lines using the Elite code, as a test of how fast it could go in theory. |
+| EllipsY | [here in browser](https://bbc.godbolt.org/?autoboot&disc=https://raw.githubusercontent.com/TobyLobster/ellipse/main/ELLIPSY.SSD) |  3cs | Draws 65 lines using the Elite line drawing code, as a test of how fast it could go in theory. |
