@@ -213,7 +213,8 @@ draw_ellipse
     ldy #aab_scaled - variables_start   ;
     jsr multiply32                      ; aab_scaled = AAdouble*B
 
-    +macro_copy16 xwidth,a              ; xwidth = A ("X Width" is horizontal half-width of ellipse)
+    lda a
+    sta xwidth                          ; xwidth = A ("X Width" is horizontal half-width of ellipse)
 
     lda #a - variables_start            ;
     ldx #b - variables_start            ;
@@ -291,11 +292,9 @@ loop1
 
     lda xwidth+1                        ;
     bmi done_loop1                      ;
-    ora xwidth                          ;
-    beq done_loop1                      ; IF XW<=0 THEN GOTO...
 
 in_loop
-    +macro_dec16 xwidth                 ; XW -= 1
+    dec xwidth                          ; XW -= 1
     +macro_subtract16 dr, dr, fr        ; DR = DR - FR
     +macro_subtract16 fr, fr, bb_scaled ; FR = FR - BBdouble
     JMP loop1                           ;
